@@ -4,8 +4,10 @@ INC="-Isrc/"
 WRN="-Wall -Werror"
 DBG="-ggdb"
 OUT="bin/GdbVkGui"
-SRC="src/main.cpp\
- src/ProcessIO.cpp"
+SRC="src/main.c\
+ src/WindowInterface.c\
+ src/ProcessIO.c"
+LIB="-lm -ldl -lX11 -lxcb -lxcb-icccm -lxcb-keysyms -lxcb-xinput"
 
 #g++ -Isrc/ -Wall -Werror -ggdb src/main.cpp src/ProcessIO.cpp -obin/GuiGdb
-g++ ${INC} ${WRN} ${DBG} ${SRC} -o${OUT}
+gcc ${INC} ${WRN} ${DBG} ${SRC} ${LIB} -o${OUT}
