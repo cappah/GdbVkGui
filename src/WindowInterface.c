@@ -19,11 +19,17 @@ struct KeyIds g_KeyIds = {
 
 //-----------------------------------------------------------------------------
 
+const struct KeySymData*
+AppRetrieveKeyData(void)
+{
+    return s_keysym_data;
+}
+
 int32_t
 AppLoadWindow(AppWindowData* win)
 {
     // default config values that always should exist
-    uint32_t wm_width  = 720;
+    uint32_t wm_width  = 1024;
     uint32_t wm_height = 640;
 
     /* Open the connection to the X server */
@@ -79,7 +85,7 @@ AppLoadWindow(AppWindowData* win)
                       wm_width,                      /* window width	*/
                       wm_height,                     /* window height	*/
                       10,                            /* border_width	*/
-                      XCB_WINDOW_CLASS_INPUT_OUTPUT, /* class			*/
+                      XCB_WINDOW_CLASS_INPUT_OUTPUT, /* class */
                       screen->root_visual,           /* visual			*/
                       mask,                          /* masks			*/
                       values);                       /* mask values		*/

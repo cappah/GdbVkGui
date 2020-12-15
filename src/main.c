@@ -6,7 +6,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "Gui/GuiLayer.h"
 #include "ProcessIO.h"
+#include "Vulkan/VulkanLayer.h"
 #include "WindowInterface.h"
 
 static void
@@ -93,9 +95,11 @@ main(const int argc, const char* argv[])
         close_frontend = true;
     }
 
-    // open app window
+    // open app window and associated vulkan context
     AppWindowData app_win = { .m_CloseWin = false };
     AppLoadWindow(&app_win);
+    VkStateBin* vk_ptr = LoadVulkanState(&app_win);
+    SetupGuiContext(vk_ptr, &app_win);
 
     double frame_time = NanoToSec(GetHighResTime());
     double fps        = 1.0 / 61.0;
@@ -112,6 +116,8 @@ main(const int argc, const char* argv[])
 
         AppProcessWindowEvents(&app_win);
         close_frontend = app_win.m_CloseWin;
+
+        ProcessGuiFrame(NULL, &app_win);
 
         if (waitpid(gdb_process, &pid_status, WNOHANG) == gdb_process) {
             write(STDOUT_FILENO, "Gdb exitted.", 11);
