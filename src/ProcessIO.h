@@ -3,36 +3,37 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-typedef struct GdbMsg
+#ifdef __cplusplus
+extern "C"
 {
-    uint32_t    m_MsgSz;
-    const char* m_Msg;
-} GdbMsg;
+#endif
 
-//-----------------------------------------------------------------------------
+    typedef struct GdbMsg
+    {
+        uint32_t    m_MsgSz;
+        const char* m_Msg;
+    } GdbMsg;
 
-uint64_t
-GetHighResTime(void);
+    //-----------------------------------------------------------------------------
 
-long int
-SecToNano(double seconds);
+    uint64_t GetHighResTime(void);
 
-double
-NanoToSec(uint64_t nanosecs);
+    long int SecToNano(double seconds);
 
-void
-TimedWait(double secs);
+    double NanoToSec(uint64_t nanosecs);
 
-//-----------------------------------------------------------------------------
+    void TimedWait(double secs);
 
-int*
-GetFtoGPipes(void);
+    //-----------------------------------------------------------------------------
 
-int*
-GetGtoFPipes(void);
+    int* GetFtoGPipes(void);
 
-bool
-SendCommand(const char* fmt, ...);
+    int* GetGtoFPipes(void);
 
-GdbMsg
-GdbOutput(void);
+    bool SendCommand(const char* fmt, ...);
+
+    GdbMsg GdbOutput(void);
+
+#ifdef __cplusplus
+}
+#endif

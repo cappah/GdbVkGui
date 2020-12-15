@@ -327,6 +327,8 @@ AppProcessWindowEvents(AppWindowData* win)
                     key_idx != g_KeyIds.WK_KEY_CURSOR_LEFT &&
                     key_idx != g_KeyIds.WK_KEY_CURSOR_RIGHT &&
                     key_idx != g_KeyIds.WK_KEY_HOME &&
+                    key_idx != g_KeyIds.WK_KEY_SHIFT_LEFT &&
+                    key_idx != g_KeyIds.WK_KEY_SHIFT_RIGHT &&
                     key_idx != g_KeyIds.WK_KEY_END) {
 
                     KeySym sym;

@@ -420,7 +420,7 @@ extern "C"
         }
     }
 
-    void ProcessGuiFrame(GuiContext* g_cntxt, AppWindowData* win)
+    void ProcessGuiFrame(AppWindowData* win, FrontEndCB f_cb)
     {
         ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
         ImVec4 clear_color           = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -497,8 +497,9 @@ extern "C"
 
         ImGui::NewFrame();
 
-        bool show_demo_window = true;
-        ImGui::ShowDemoWindow(&show_demo_window);
+        if (f_cb) {
+            f_cb();
+        }
 
         ImGui::Render();
         ImDrawData* draw_data    = ImGui::GetDrawData();
@@ -512,7 +513,6 @@ extern "C"
             FramePresent(wd);
         }
 
-        UNUSED_VAR(g_cntxt);
         UNUSED_VAR(CleanupVulkan);
         UNUSED_VAR(CleanupVulkanWindow);
     }

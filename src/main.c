@@ -6,6 +6,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "Frontend/GdbFE.h"
 #include "Gui/GuiLayer.h"
 #include "ProcessIO.h"
 #include "Vulkan/VulkanLayer.h"
@@ -81,12 +82,12 @@ main(const int argc, const char* argv[])
     pid_t gdb_process =
       CreateGdbProcess(gdb_exe, fd_frontend_to_gdb, fd_gdb_to_frontend);
 
-    if (SendCommand("-gdb-version")) {
-        GdbMsg out = GdbOutput();
-        if (out.m_MsgSz) {
-            write(STDOUT_FILENO, out.m_Msg, out.m_MsgSz);
-        }
-    }
+    // if (SendCommand("-gdb-version")) {
+    //    GdbMsg out = GdbOutput();
+    //    if (out.m_MsgSz) {
+    //        write(STDOUT_FILENO, out.m_Msg, out.m_MsgSz);
+    //    }
+    //}
 
     int  pid_status     = 0;
     bool close_frontend = false;
@@ -117,7 +118,7 @@ main(const int argc, const char* argv[])
         AppProcessWindowEvents(&app_win);
         close_frontend = app_win.m_CloseWin;
 
-        ProcessGuiFrame(NULL, &app_win);
+        ProcessGuiFrame(&app_win, DrawFrontend);
 
         if (waitpid(gdb_process, &pid_status, WNOHANG) == gdb_process) {
             write(STDOUT_FILENO, "Gdb exitted.", 11);

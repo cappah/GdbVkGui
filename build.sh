@@ -14,6 +14,7 @@ OBJ="main.o\
  VulkanLayer.o\
  ProcessIO.o"
 SRCPP="../src/Gui/GuiLayer.cpp\
+ ../src/Frontend/GdbFE.cpp\
  ../imgui/imgui_impl_vulkan.cpp\
  ../imgui/imgui_widgets.cpp\
  ../imgui/imgui_tables.cpp\
@@ -21,6 +22,7 @@ SRCPP="../src/Gui/GuiLayer.cpp\
  ../imgui/imgui_demo.cpp\
  ../imgui/imgui.cpp"
 OBJPP="GuiLayer.o\
+ GdbFE.o\
  imgui_impl_vulkan.o\
  imgui_widgets.o\
  imgui_tables.o\

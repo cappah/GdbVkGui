@@ -8,18 +8,11 @@ extern "C"
     typedef struct VkStateBin    VkStateBin;
     typedef struct AppWindowData AppWindowData;
 
-    typedef void (*SendCmd)(const char*);
-    typedef int (*GetResponse)(const char*);
-
-    typedef struct GuiContext
-    {
-        SendCmd     m_SendCB;
-        GetResponse m_ResponseCB;
-    } GuiContext;
+    typedef int (*FrontEndCB)(void);
 
     void SetupGuiContext(VkStateBin* vkstate, AppWindowData* win);
 
-    void ProcessGuiFrame(GuiContext* g_cntxt, AppWindowData* win);
+    void ProcessGuiFrame(AppWindowData* win, FrontEndCB f_cb);
 
 #ifdef __cplusplus
 }
