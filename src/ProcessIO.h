@@ -34,6 +34,24 @@ extern "C"
 
     GdbMsg GdbOutput(void);
 
+    //-----------------------------------------------------------------------------
+
+	typedef struct FileInfo
+	{
+		uint32_t m_LastAccess;
+		uint32_t m_LastEdit;
+		uint32_t m_LastChange;
+		uint32_t m_Sz;
+		char     m_Name[512];
+
+		char*    m_Contents;
+		uint32_t m_ContentMaxSz;
+	} FileInfo;
+
+	bool GetFileInfo(const char* fname, FileInfo* f_info);
+
+	bool ReadFile(const char* fname, FileInfo* f_info);
+
 #ifdef __cplusplus
 }
 #endif

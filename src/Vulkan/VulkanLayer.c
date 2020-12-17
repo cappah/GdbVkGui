@@ -116,7 +116,6 @@ LoadVulkanState(AppWindowData* win)
     // Load validation layer
     const char* validation_layer[] = { "VK_LAYER_KHRONOS_validation",
                                        "VK_LAYER_LUNARG_standard_validation" };
-    uint32_t    validation_idx     = 0;
     {
         uint32_t available_layers;
 
@@ -137,7 +136,6 @@ LoadVulkanState(AppWindowData* win)
         for (uint32_t i = 0; i < available_layers && !layer_found; i++) {
             for (uint32_t j = 0; j < validation_count; j++) {
                 if (STR_EQ(layer_props[i].layerName, validation_layer[j])) {
-                    validation_idx = j;
                     layer_found    = true;
                 }
             }
@@ -147,9 +145,7 @@ LoadVulkanState(AppWindowData* win)
     }
 
     const char* enabled_exts[] = { VK_KHR_SURFACE_EXTENSION_NAME,
-                                   VG_WINDOW_SURFACE,
-                                   VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-                                   VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME };
+                                   VG_WINDOW_SURFACE };
 
     uint32_t enabled_ext_count = STATIC_ARRAY_COUNT(enabled_exts);
     {
@@ -190,8 +186,6 @@ LoadVulkanState(AppWindowData* win)
     VkInstanceCreateInfo inst_info    = {};
     inst_info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     inst_info.pApplicationInfo        = &app_info;
-    inst_info.enabledLayerCount       = 1;
-    inst_info.ppEnabledLayerNames     = &validation_layer[validation_idx];
     inst_info.enabledExtensionCount   = enabled_ext_count;
     inst_info.ppEnabledExtensionNames = enabled_exts;
 
@@ -213,25 +207,6 @@ LoadVulkanState(AppWindowData* win)
     }
 #include "Vulkan/ListOfVulkanFunctions.inl"
     }
-
-    VkDebugUtilsMessengerCreateInfoEXT callback_info = {
-        VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        NULL,
-        0,
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-        // VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-        VGDebugCB,
-        NULL
-    };
-
-    success = vkCreateDebugUtilsMessengerEXT(
-      s_vkstate.m_Inst, &callback_info, NULL, &s_vkstate.m_DebugMsgr);
-    assert(success == VK_SUCCESS && "vkCreateDebugUtilsMessengerEXT");
 
     VkXcbSurfaceCreateInfoKHR window_create_info = {};
     window_create_info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;

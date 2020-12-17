@@ -5,6 +5,7 @@ INC="-I../src/\
 WRN="-Wall -Werror"
 DBG="-ggdb"
 OUT="../bin/GdbVkGui"
+
 SRC="../src/main.c\
  ../src/WindowInterface.c\
  ../src/Vulkan/VulkanLayer.c\
@@ -13,15 +14,20 @@ OBJ="main.o\
  WindowInterface.o\
  VulkanLayer.o\
  ProcessIO.o"
+
 SRCPP="../src/Gui/GuiLayer.cpp\
- ../src/Frontend/GdbFE.cpp\
- ../imgui/imgui_impl_vulkan.cpp\
+ ../src/Frontend/GdbFE.cpp"
+SRCPP2="../imgui/imgui_impl_vulkan.cpp\
  ../imgui/imgui_widgets.cpp\
  ../imgui/imgui_tables.cpp\
  ../imgui/imgui_draw.cpp\
  ../imgui/imgui_demo.cpp\
- ../imgui/imgui.cpp"
+ ../imgui/imgui.cpp\
+ ../src/Frontend/ImGuiFileBrowser.cpp\
+ ../src/Frontend/TextEditor.cpp"
 OBJPP="GuiLayer.o\
+ TextEditor.o\
+ ImGuiFileBrowser.o\
  GdbFE.o\
  imgui_impl_vulkan.o\
  imgui_widgets.o\
@@ -29,13 +35,15 @@ OBJPP="GuiLayer.o\
  imgui_draw.o\
  imgui_demo.o\
  imgui.o"
+
 LIB="-lm -ldl -lX11 -lxcb -lxcb-icccm -lxcb-keysyms -lxcb-xinput"
 DEF="-D VK_NO_PROTOTYPES"
 
 #g++ -Isrc/ -Wall -Werror -ggdb src/main.cpp src/ProcessIO.cpp -obin/GuiGdb
 mkdir bin 2>/dev/null 1>&2
-cd bin
+cd bin 
 gcc -c ${INC} ${WRN} ${DBG} ${DEF} ${SRC}
 g++ -c ${INC} ${WRN} ${DBG} ${DEF} ${SRCPP}
+g++ -c ${INC} ${DBG} ${DEF} ${SRCPP2}
 g++ ${OBJ} ${OBJPP} ${LIB} -o${OUT}
 cd ..

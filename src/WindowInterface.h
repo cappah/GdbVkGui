@@ -43,6 +43,7 @@ extern "C"
     {
         bool     m_CloseWin;
         char     m_LastTypedC;
+		char     m_ClipBoard[1024 * 4];
         uint32_t m_ClientW;
         uint32_t m_ClientH;
 
@@ -67,6 +68,7 @@ extern "C"
 
     int32_t AppLoadWindow(AppWindowData* win);
     void    AppProcessWindowEvents(AppWindowData* win);
+	const char* AppRequestClipBoardData(AppWindowData* win);
 
 #ifdef __cplusplus
 }

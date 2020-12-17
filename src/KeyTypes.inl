@@ -51,7 +51,6 @@ KEY_TYPES( KEY_DELETE,		 "Delete",		( XK_Delete & 0xFF ),		VK_DELETE )
 KEY_TYPES( KEY_PAGE_UP,		 "Page Up",		( XK_Page_Up & 0xFF ),		VK_PRIOR )
 KEY_TYPES( KEY_PAGE_DOWN,	 "Page Down",	( XK_Page_Down & 0xFF ),	VK_NEXT )
 KEY_TYPES( KEY_BACKSPACE,	 "Backspace",	( XK_BackSpace & 0xFF ),	VK_BACK )
-KEY_TYPES( KEY_PAD_ENTER,	 "Keypad Enter",( XK_KP_Enter & 0xFF ),		VK_RETURN )
 
 
 #undef KEY_TYPES
