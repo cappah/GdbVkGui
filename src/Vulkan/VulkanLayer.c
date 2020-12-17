@@ -136,7 +136,7 @@ LoadVulkanState(AppWindowData* win)
         for (uint32_t i = 0; i < available_layers && !layer_found; i++) {
             for (uint32_t j = 0; j < validation_count; j++) {
                 if (STR_EQ(layer_props[i].layerName, validation_layer[j])) {
-                    layer_found    = true;
+                    layer_found = true;
                 }
             }
         }

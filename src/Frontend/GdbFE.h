@@ -7,10 +7,10 @@ extern "C"
 {
 #endif
 
-	typedef struct LoadSettings
-	{
-		int m_MaxFileSz;
-	} LoadSettings;
+    typedef struct LoadSettings
+    {
+        int m_MaxFileSz;
+    } LoadSettings;
 
     void InitFrontend(const LoadSettings* settings);
 

@@ -1,9 +1,9 @@
 #include "WindowInterface.h"
 #include <assert.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #define KEY_TYPES(a, b, c, d) [c] = { #a, #b, false, 0, 0 },
 #define MOUSE_TYPES(a, b, c, d) [c] = { #a, #b, false, 0, 0 },
@@ -24,14 +24,16 @@ static uint32_t s_sticky_enter_hack;
 
 //-----------------------------------------------------------------------------
 
-static xcb_atom_t 
+static xcb_atom_t
 GetAtomFromStr(xcb_connection_t* connect, const char* atom_str)
 {
-  xcb_intern_atom_cookie_t cookie = xcb_intern_atom(connect, 0, strlen(atom_str), atom_str);
-  xcb_intern_atom_reply_t* reply = xcb_intern_atom_reply(connect, cookie, NULL);
-  xcb_atom_t atom = reply->atom;
-  free(reply);
-  return atom;
+    xcb_intern_atom_cookie_t cookie =
+      xcb_intern_atom(connect, 0, strlen(atom_str), atom_str);
+    xcb_intern_atom_reply_t* reply =
+      xcb_intern_atom_reply(connect, cookie, NULL);
+    xcb_atom_t atom = reply->atom;
+    free(reply);
+    return atom;
 }
 
 const struct KeySymData*
@@ -89,7 +91,7 @@ AppLoadWindow(AppWindowData* win)
           XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW |
           XCB_EVENT_MASK_BUTTON_MOTION | XCB_EVENT_MASK_KEY_PRESS |
           XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_VISIBILITY_CHANGE |
-		  XCB_EVENT_MASK_STRUCTURE_NOTIFY
+          XCB_EVENT_MASK_STRUCTURE_NOTIFY
     };
 
     xcb_create_window(win->m_Connection,
@@ -137,7 +139,7 @@ AppLoadWindow(AppWindowData* win)
                             &hints);
     }
         */
-	xcb_atom_t name_atm = GetAtomFromStr(win->m_Connection, "_NET_WM_NAME");
+    xcb_atom_t name_atm = GetAtomFromStr(win->m_Connection, "_NET_WM_NAME");
 
     /* set the window_title of the window */
     const char* title = WINDOW_TITLE;
@@ -230,19 +232,20 @@ AppProcessWindowEvents(AppWindowData* win)
 
     win->m_LastTypedC = '\0';
 
-	s_sticky_enter_hack++;
-	if (s_sticky_enter_hack > 10) {
-		s_keysym_data[g_KeyIds.WK_KEY_RETURN].triggered  = false;
-	}
+    s_sticky_enter_hack++;
+    if (s_sticky_enter_hack > 10) {
+        s_keysym_data[g_KeyIds.WK_KEY_RETURN].triggered = false;
+    }
 
     while ((event = xcb_poll_for_event(win->m_Connection))) {
         switch (event->response_type & ~0x80) {
             case XCB_EXPOSE: {
-                //xcb_expose_event_t* expose = (xcb_expose_event_t*)event;
+                // xcb_expose_event_t* expose = (xcb_expose_event_t*)event;
                 break;
             }
             case XCB_VISIBILITY_NOTIFY: {
-                //xcb_visibility_notify_event_t* visibility = (xcb_visibility_notify_event_t*)event;
+                // xcb_visibility_notify_event_t* visibility =
+                // (xcb_visibility_notify_event_t*)event;
                 break;
             }
             case XCB_CLIENT_MESSAGE: {
@@ -255,13 +258,13 @@ AppProcessWindowEvents(AppWindowData* win)
             case XCB_BUTTON_PRESS: {
                 xcb_button_press_event_t* bp = (xcb_button_press_event_t*)event;
 
-				if (bp->event == win->m_Window) {
-					const uint32_t idx = bp->detail + 255;
+                if (bp->event == win->m_Window) {
+                    const uint32_t idx = bp->detail + 255;
 
-					s_keysym_data[idx].triggered = true;
-					s_keysym_data[idx].x         = bp->event_x;
-					s_keysym_data[idx].y         = bp->event_y;
-				}
+                    s_keysym_data[idx].triggered = true;
+                    s_keysym_data[idx].x         = bp->event_x;
+                    s_keysym_data[idx].y         = bp->event_y;
+                }
 
                 break;
             }
@@ -269,16 +272,16 @@ AppProcessWindowEvents(AppWindowData* win)
                 xcb_button_release_event_t* br =
                   (xcb_button_release_event_t*)event;
 
-				if (br->event == win->m_Window) {
-					const uint32_t idx = br->detail + 255;
+                if (br->event == win->m_Window) {
+                    const uint32_t idx = br->detail + 255;
 
-					if (idx > g_KeyIds.WK_MOUSE_SCROLL_RIGHT ||
-						idx < g_KeyIds.WK_MOUSE_SCROLL_UP) {
+                    if (idx > g_KeyIds.WK_MOUSE_SCROLL_RIGHT ||
+                        idx < g_KeyIds.WK_MOUSE_SCROLL_UP) {
 
-						s_keysym_data[idx].triggered = false;
-						s_keysym_data[idx].x         = br->event_x;
-						s_keysym_data[idx].y         = br->event_y;
-					}
+                        s_keysym_data[idx].triggered = false;
+                        s_keysym_data[idx].x         = br->event_x;
+                        s_keysym_data[idx].y         = br->event_y;
+                    }
                 }
 
                 break;
@@ -287,22 +290,24 @@ AppProcessWindowEvents(AppWindowData* win)
                 xcb_motion_notify_event_t* motion =
                   (xcb_motion_notify_event_t*)event;
 
-				if (motion->event == win->m_Window) {
-					const int64_t old_x = s_keysym_data[g_KeyIds.WK_MOUSE_POS].x;
-					const int64_t old_y = s_keysym_data[g_KeyIds.WK_MOUSE_POS].y;
+                if (motion->event == win->m_Window) {
+                    const int64_t old_x =
+                      s_keysym_data[g_KeyIds.WK_MOUSE_POS].x;
+                    const int64_t old_y =
+                      s_keysym_data[g_KeyIds.WK_MOUSE_POS].y;
 
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].triggered = true;
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].x =
-					  (int64_t)motion->event_x;
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].y =
-					  (int64_t)motion->event_y;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].triggered = true;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].x =
+                      (int64_t)motion->event_x;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].y =
+                      (int64_t)motion->event_y;
 
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].triggered = true;
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].x =
-					  (int64_t)motion->event_x - old_x;
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].y =
-					  (int64_t)motion->event_y - old_y;
-				}
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].triggered = true;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].x =
+                      (int64_t)motion->event_x - old_x;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].y =
+                      (int64_t)motion->event_y - old_y;
+                }
 
                 break;
             }
@@ -310,17 +315,17 @@ AppProcessWindowEvents(AppWindowData* win)
                 xcb_enter_notify_event_t* enter =
                   (xcb_enter_notify_event_t*)event;
 
-				if (enter->event == win->m_Window) {
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].triggered = true;
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].x =
-					  (int64_t)enter->event_x;
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].y =
-					  (int64_t)enter->event_y;
+                if (enter->event == win->m_Window) {
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].triggered = true;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].x =
+                      (int64_t)enter->event_x;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].y =
+                      (int64_t)enter->event_y;
 
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].triggered = true;
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].x         = 0;
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].y         = 0;
-				}
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].triggered = true;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].x         = 0;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].y         = 0;
+                }
 
                 break;
             }
@@ -328,128 +333,132 @@ AppProcessWindowEvents(AppWindowData* win)
                 xcb_leave_notify_event_t* leave =
                   (xcb_leave_notify_event_t*)event;
 
-				if (leave->event == win->m_Window) {
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].triggered = false;
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].x =
-					  (int64_t)leave->event_x;
-					s_keysym_data[g_KeyIds.WK_MOUSE_POS].y =
-					  (int64_t)leave->event_y;
+                if (leave->event == win->m_Window) {
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].triggered = false;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].x =
+                      (int64_t)leave->event_x;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_POS].y =
+                      (int64_t)leave->event_y;
 
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].triggered = false;
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].x         = 0;
-					s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].y         = 0;
-				}
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].triggered = false;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].x         = 0;
+                    s_keysym_data[g_KeyIds.WK_MOUSE_DELTA].y         = 0;
+                }
 
                 break;
             }
             case XCB_KEY_PRESS: {
                 xcb_key_press_event_t* kp = (xcb_key_press_event_t*)event;
 
-				if (kp->event == win->m_Window) {
-					const xcb_keysym_t keysym =
-					  xcb_key_press_lookup_keysym(win->m_Symbols, kp, 0);
+                if (kp->event == win->m_Window) {
+                    const xcb_keysym_t keysym =
+                      xcb_key_press_lookup_keysym(win->m_Symbols, kp, 0);
 
-					s_keysym_data[keysym & 255].triggered = true;
+                    s_keysym_data[keysym & 255].triggered = true;
 
-					if (!s_keysym_data[keysym & 255].description) {
-						// unknown key
-					}
+                    if (!s_keysym_data[keysym & 255].description) {
+                        // unknown key
+                    }
 
-					win->m_LastTypedC = '\0';
-					uint32_t key_idx  = keysym & 255;
-					if (key_idx != g_KeyIds.WK_KEY_CURSOR_UP &&
-						key_idx != g_KeyIds.WK_KEY_CURSOR_DOWN &&
-						key_idx != g_KeyIds.WK_KEY_CURSOR_LEFT &&
-						key_idx != g_KeyIds.WK_KEY_CURSOR_RIGHT &&
-						key_idx != g_KeyIds.WK_KEY_HOME &&
-						key_idx != g_KeyIds.WK_KEY_SHIFT_LEFT &&
-						key_idx != g_KeyIds.WK_KEY_SHIFT_RIGHT &&
-						key_idx != g_KeyIds.WK_KEY_CTRL_RIGHT &&
-						key_idx != g_KeyIds.WK_KEY_CTRL_LEFT &&
-						key_idx != g_KeyIds.WK_KEY_END) {
+                    win->m_LastTypedC = '\0';
+                    uint32_t key_idx  = keysym & 255;
+                    if (key_idx != g_KeyIds.WK_KEY_CURSOR_UP &&
+                        key_idx != g_KeyIds.WK_KEY_CURSOR_DOWN &&
+                        key_idx != g_KeyIds.WK_KEY_CURSOR_LEFT &&
+                        key_idx != g_KeyIds.WK_KEY_CURSOR_RIGHT &&
+                        key_idx != g_KeyIds.WK_KEY_HOME &&
+                        key_idx != g_KeyIds.WK_KEY_SHIFT_LEFT &&
+                        key_idx != g_KeyIds.WK_KEY_SHIFT_RIGHT &&
+                        key_idx != g_KeyIds.WK_KEY_CTRL_RIGHT &&
+                        key_idx != g_KeyIds.WK_KEY_CTRL_LEFT &&
+                        key_idx != g_KeyIds.WK_KEY_END) {
 
-						KeySym sym;
-						if (XkbLookupKeySym(
-							  win->m_XDisplay, kp->detail, kp->state, NULL, &sym)) {
-							win->m_LastTypedC = (char)sym;
-						}
-					}
+                        KeySym sym;
+                        if (XkbLookupKeySym(win->m_XDisplay,
+                                            kp->detail,
+                                            kp->state,
+                                            NULL,
+                                            &sym)) {
+                            win->m_LastTypedC = (char)sym;
+                        }
+                    }
 
-					if (key_idx == g_KeyIds.WK_KEY_RETURN) {
-						s_sticky_enter_hack = 0;
-					}
-				}
+                    if (key_idx == g_KeyIds.WK_KEY_RETURN) {
+                        s_sticky_enter_hack = 0;
+                    }
+                }
 
                 break;
             }
             case XCB_KEY_RELEASE: {
                 xcb_key_release_event_t* kr = (xcb_key_release_event_t*)event;
 
-				if (kr->event == win->m_Window) {
-					const xcb_keysym_t keysym =
-					  xcb_key_press_lookup_keysym(win->m_Symbols, kr, 0);
+                if (kr->event == win->m_Window) {
+                    const xcb_keysym_t keysym =
+                      xcb_key_press_lookup_keysym(win->m_Symbols, kr, 0);
 
-					uint32_t key_idx = keysym & 255;
-					s_keysym_data[key_idx].triggered = false;
+                    uint32_t key_idx                 = keysym & 255;
+                    s_keysym_data[key_idx].triggered = false;
 
-					if (!s_keysym_data[key_idx].description) {
-						// unknow key
-					}
-				}
+                    if (!s_keysym_data[key_idx].description) {
+                        // unknow key
+                    }
+                }
 
                 break;
             }
             case XCB_SELECTION_NOTIFY: {
                 // Ping the server for the clipboard event
 
-				xcb_selection_notify_event_t* sn =
-				  (xcb_selection_notify_event_t*)event;
+                xcb_selection_notify_event_t* sn =
+                  (xcb_selection_notify_event_t*)event;
 
-				// could be XCB_ATOM_CLIPBOARD
-				xcb_atom_t clip_atm = GetAtomFromStr(win->m_Connection, "CLIPBOARD");
+                // could be XCB_ATOM_CLIPBOARD
+                xcb_atom_t clip_atm =
+                  GetAtomFromStr(win->m_Connection, "CLIPBOARD");
 
-				if (sn->selection == clip_atm && sn->property != XCB_NONE) {
+                if (sn->selection == clip_atm && sn->property != XCB_NONE) {
 
-					//last_select_notify = (uint64_t)sn->time;
+                    // last_select_notify = (uint64_t)sn->time;
 
-					xcb_icccm_get_text_property_reply_t txt_prop;
-					xcb_get_property_cookie_t           cookie =
-					  xcb_icccm_get_text_property(
-						win->m_Connection, sn->requestor, sn->property);
+                    xcb_icccm_get_text_property_reply_t txt_prop;
+                    xcb_get_property_cookie_t           cookie =
+                      xcb_icccm_get_text_property(
+                        win->m_Connection, sn->requestor, sn->property);
 
-					if (xcb_icccm_get_text_property_reply(
-						  win->m_Connection, cookie, &txt_prop, NULL)) {
+                    if (xcb_icccm_get_text_property_reply(
+                          win->m_Connection, cookie, &txt_prop, NULL)) {
 
-						const uint32_t clip_sz = sizeof(win->m_ClipBoard);
-						const uint32_t str_sz  = txt_prop.name_len < clip_sz
-												  // clang-format off
+                        const uint32_t clip_sz = sizeof(win->m_ClipBoard);
+                        const uint32_t str_sz  = txt_prop.name_len < clip_sz
+                                                  // clang-format off
 												  ? txt_prop.name_len + 1
 												  : clip_sz;
-						// clang-format on
-						snprintf(win->m_ClipBoard, str_sz, "%s", txt_prop.name);
+                        // clang-format on
+                        snprintf(win->m_ClipBoard, str_sz, "%s", txt_prop.name);
 
-						xcb_icccm_get_text_property_reply_wipe(&txt_prop);
+                        xcb_icccm_get_text_property_reply_wipe(&txt_prop);
 
-						xcb_delete_property(
-						  win->m_Connection, sn->requestor, sn->property);
-					}
-				}
+                        xcb_delete_property(
+                          win->m_Connection, sn->requestor, sn->property);
+                    }
+                }
                 break;
             }
             case XCB_CONFIGURE_NOTIFY: {
                 xcb_configure_notify_event_t* configure_event =
                   (xcb_configure_notify_event_t*)event;
 
-				if (configure_event->event == win->m_Window) {
-					if (((configure_event->width > 0) &&
-						 (win->m_ClientW != configure_event->width)) ||
-						((configure_event->height > 0) &&
-						 (win->m_ClientH != configure_event->height))) {
+                if (configure_event->event == win->m_Window) {
+                    if (((configure_event->width > 0) &&
+                         (win->m_ClientW != configure_event->width)) ||
+                        ((configure_event->height > 0) &&
+                         (win->m_ClientH != configure_event->height))) {
 
-						win->m_ClientW = configure_event->width;
-						win->m_ClientH = configure_event->height;
-					}
-				}
+                        win->m_ClientW = configure_event->width;
+                        win->m_ClientH = configure_event->height;
+                    }
+                }
                 break;
             }
             default:
@@ -464,12 +473,13 @@ AppProcessWindowEvents(AppWindowData* win)
 const char*
 AppRequestClipBoardData(AppWindowData* win)
 {
-	xcb_atom_t clip_atm = GetAtomFromStr(win->m_Connection, "CLIPBOARD");
-	//xcb_get_selection_owner_cookie_t clipb_ck = xcb_get_selection_owner(win->m_Connection, clip_atm);
-	xcb_convert_selection(win->m_Connection, win->m_Window, clip_atm, XCB_ATOM_STRING, 0, 1);
+    xcb_atom_t clip_atm = GetAtomFromStr(win->m_Connection, "CLIPBOARD");
+    // xcb_get_selection_owner_cookie_t clipb_ck =
+    // xcb_get_selection_owner(win->m_Connection, clip_atm);
+    xcb_convert_selection(
+      win->m_Connection, win->m_Window, clip_atm, XCB_ATOM_STRING, 0, 1);
 
-	AppProcessWindowEvents(win);
+    AppProcessWindowEvents(win);
 
-	return win->m_ClipBoard;
+    return win->m_ClipBoard;
 }
-

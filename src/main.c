@@ -102,8 +102,8 @@ main(const int argc, const char* argv[])
     VkStateBin* vk_ptr = LoadVulkanState(&app_win);
     SetupGuiContext(vk_ptr, &app_win);
 
-	LoadSettings settings = { .m_MaxFileSz = (0x1 << 20) * 5 }; // 5 megabytes
-	InitFrontend(&settings);
+    LoadSettings settings = { .m_MaxFileSz = (0x1 << 20) * 5 }; // 5 megabytes
+    InitFrontend(&settings);
 
     double frame_time = NanoToSec(GetHighResTime());
     double fps        = 1.0 / 61.0;

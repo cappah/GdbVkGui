@@ -1,13 +1,13 @@
 #include "ProcessIO.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 uint64_t
 GetHighResTime(void)
@@ -51,7 +51,7 @@ TimedWait(double secs)
 
 //-----------------------------------------------------------------------------
 
-static char s_gdb_out[(0x1 << 20)*10]; // 10 megabyte buffer
+static char s_gdb_out[(0x1 << 20) * 10]; // 10 megabyte buffer
 static char s_cmd_buff[1024];
 static char s_err[1024];
 
@@ -125,13 +125,12 @@ GdbOutput(void)
             double wait_t = 0.03;
             TimedWait(wait_t);
             timeout += wait_t;
+        } else {
+            break;
         }
-		else {
-			break;
-		}
 
         // Safety net. Shouldn't be hit, unless to data from gdb is huge
-        //if (msg_sz == (sizeof(s_gdb_out) - 1)) {
+        // if (msg_sz == (sizeof(s_gdb_out) - 1)) {
         //    read_bytes        = 0;
         //    s_gdb_out[msg_sz] = 0;
         //}
@@ -143,46 +142,45 @@ GdbOutput(void)
 
 //-----------------------------------------------------------------------------
 
-bool 
+bool
 GetFileInfo(const char* fname, FileInfo* f_info)
 {
-	struct stat inf = {0};
-	if (stat(fname, &inf) != 0) {
-		return false;
-	}
+    struct stat inf = { 0 };
+    if (stat(fname, &inf) != 0) {
+        return false;
+    }
 
-	memset(f_info->m_Name, 0, sizeof(f_info->m_Name));
-	memcpy(f_info->m_Name, fname, strlen(fname));
+    memset(f_info->m_Name, 0, sizeof(f_info->m_Name));
+    memcpy(f_info->m_Name, fname, strlen(fname));
 
-	f_info->m_Sz         = (uint32_t)inf.st_size;
-	f_info->m_LastAccess = (uint32_t)inf.st_atime;
-	f_info->m_LastEdit   = (uint32_t)inf.st_mtime;
-	f_info->m_LastChange = (uint32_t)inf.st_ctime;
+    f_info->m_Sz         = (uint32_t)inf.st_size;
+    f_info->m_LastAccess = (uint32_t)inf.st_atime;
+    f_info->m_LastEdit   = (uint32_t)inf.st_mtime;
+    f_info->m_LastChange = (uint32_t)inf.st_ctime;
 
-	return true;
+    return true;
 }
 
-bool 
+bool
 ReadFile(const char* fname, FileInfo* f_info)
 {
-	if (GetFileInfo(fname, f_info)) {
-		int fd = open(fname, O_RDONLY);
-		if (fd != -1) {
-			memset(f_info->m_Contents, 0, f_info->m_ContentMaxSz);
-			if (!f_info->m_Contents) {
-				close(fd);
-				return false;
-			}
+    if (GetFileInfo(fname, f_info)) {
+        int fd = open(fname, O_RDONLY);
+        if (fd != -1) {
+            memset(f_info->m_Contents, 0, f_info->m_ContentMaxSz);
+            if (!f_info->m_Contents) {
+                close(fd);
+                return false;
+            }
 
-			// TODO : Handles case where file sz is too large?
+            // TODO : Handles case where file sz is too large?
 
-			int sts = read(fd, f_info->m_Contents, f_info->m_Sz);
-			(void)sts;
+            int sts = read(fd, f_info->m_Contents, f_info->m_Sz);
+            (void)sts;
 
-			close(fd);
-			return true;
-		}
-	}
-	return false;
+            close(fd);
+            return true;
+        }
+    }
+    return false;
 }
-
