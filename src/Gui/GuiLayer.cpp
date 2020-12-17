@@ -1,4 +1,5 @@
 #include "Gui/GuiLayer.h"
+#include "ProcessIO.h"
 #include "UtilityMacros.h"
 #include "Vulkan/VulkanLayer.h"
 #include "WindowInterface.h"
@@ -55,7 +56,7 @@ extern "C"
             IM_ASSERT(gpu_count > 0);
 
             VkPhysicalDevice* gpus =
-              (VkPhysicalDevice*)malloc(sizeof(VkPhysicalDevice) * gpu_count);
+              (VkPhysicalDevice*)WmMalloc(sizeof(VkPhysicalDevice) * gpu_count);
             err = vkEnumeratePhysicalDevices(g_Instance, &gpu_count, gpus);
             check_vk_result(err);
 
@@ -65,7 +66,7 @@ extern "C"
             // of simplicity we'll just take the first one, assuming it has a
             // graphics queue family.
             g_PhysicalDevice = gpus[0];
-            free(gpus);
+            WmFree(gpus);
         }
 
         // Select graphics queue family
@@ -73,8 +74,9 @@ extern "C"
             uint32_t count;
             vkGetPhysicalDeviceQueueFamilyProperties(
               g_PhysicalDevice, &count, NULL);
-            VkQueueFamilyProperties* queues = (VkQueueFamilyProperties*)malloc(
-              sizeof(VkQueueFamilyProperties) * count);
+            VkQueueFamilyProperties* queues =
+              (VkQueueFamilyProperties*)WmMalloc(
+                sizeof(VkQueueFamilyProperties) * count);
             vkGetPhysicalDeviceQueueFamilyProperties(
               g_PhysicalDevice, &count, queues);
             for (uint32_t i = 0; i < count; i++)
@@ -82,7 +84,7 @@ extern "C"
                     g_QueueFamily = i;
                     break;
                 }
-            free(queues);
+            WmFree(queues);
             IM_ASSERT(g_QueueFamily != (uint32_t)-1);
         }
 

@@ -1,49 +1,76 @@
 #!/usr/bin/env bash
 
-INC="-I../src/\
- -I../imgui/"
+# get the current directory
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )/"
+
+INC="-I${DIR}src/\
+ -I${DIR}lua-5.4.2/src/\
+ -I${DIR}imgui/"
 WRN="-Wall -Werror"
 DBG="-ggdb"
-OUT="../bin/GdbVkGui"
+OUT="${DIR}bin/GdbVkGui"
 
-SRC="../src/main.c\
- ../src/WindowInterface.c\
- ../src/Vulkan/VulkanLayer.c\
- ../src/ProcessIO.c"
-OBJ="main.o\
- WindowInterface.o\
- VulkanLayer.o\
- ProcessIO.o"
+SRC="${DIR}src/main.c\
+ ${DIR}src/WindowInterface.c\
+ ${DIR}src/Vulkan/VulkanLayer.c\
+ ${DIR}src/LuaLayer.c\
+ ${DIR}src/tlsf.c\
+ ${DIR}src/ProcessIO.c"
+OBJ="${DIR}bin/main.o\
+ ${DIR}bin/WindowInterface.o\
+ ${DIR}bin/VulkanLayer.o\
+ ${DIR}bin/ProcessIO.o\
+ ${DIR}bin/LuaLayer.o\
+ ${DIR}bin/tlsf.o"
 
-SRCPP="../src/Gui/GuiLayer.cpp\
- ../src/Frontend/GdbFE.cpp"
-SRCPP2="../imgui/imgui_impl_vulkan.cpp\
- ../imgui/imgui_widgets.cpp\
- ../imgui/imgui_tables.cpp\
- ../imgui/imgui_draw.cpp\
- ../imgui/imgui_demo.cpp\
- ../imgui/imgui.cpp\
- ../src/Frontend/ImGuiFileBrowser.cpp\
- ../src/Frontend/TextEditor.cpp"
-OBJPP="GuiLayer.o\
- TextEditor.o\
- ImGuiFileBrowser.o\
- GdbFE.o\
- imgui_impl_vulkan.o\
- imgui_widgets.o\
- imgui_tables.o\
- imgui_draw.o\
- imgui_demo.o\
- imgui.o"
+SRCPP="${DIR}src/Gui/GuiLayer.cpp\
+ ${DIR}src/Gui/ImguiToLua.cpp"
+SRCPP2="${DIR}imgui/imgui_impl_vulkan.cpp\
+ ${DIR}imgui/imgui_widgets.cpp\
+ ${DIR}imgui/imgui_tables.cpp\
+ ${DIR}imgui/imgui_draw.cpp\
+ ${DIR}imgui/imgui_demo.cpp\
+ ${DIR}imgui/imgui.cpp\
+ ${DIR}src/Frontend/ImGuiFileBrowser.cpp\
+ ${DIR}src/Frontend/TextEditor.cpp"
+OBJPP="${DIR}bin/GuiLayer.o\
+ ${DIR}bin/ImguiToLua.o\
+ ${DIR}bin/TextEditor.o\
+ ${DIR}bin/ImGuiFileBrowser.o\
+ ${DIR}bin/GdbFE.o\
+ ${DIR}bin/imgui_impl_vulkan.o\
+ ${DIR}bin/imgui_widgets.o\
+ ${DIR}bin/imgui_tables.o\
+ ${DIR}bin/imgui_draw.o\
+ ${DIR}bin/imgui_demo.o\
+ ${DIR}bin/imgui.o"
 
-LIB="-lm -ldl -lX11 -lxcb -lxcb-icccm -lxcb-keysyms -lxcb-xinput"
-DEF="-D VK_NO_PROTOTYPES"
+ILIB="-L${DIR}lua-5.4.2/src/"
+LIB="-lm -ldl -lX11 -lxcb -lxcb-icccm -lxcb-keysyms -lxcb-xinput -llua"
+DEF="-DVK_NO_PROTOTYPES -DROOT_DIR=\"${DIR}\""
 
-#g++ -Isrc/ -Wall -Werror -ggdb src/main.cpp src/ProcessIO.cpp -obin/GuiGdb
+# build lua if necessary
+if [[ ! -f "lua-5.4.2/src/liblua.a" ]]; then
+	cd ${DIR}lua-5.4.2
+	make linux
+	cd ${DIR}
+fi
+
 mkdir bin 2>/dev/null 1>&2
-cd bin 
+cd ${DIR}bin 
+echo "gcc -c ${INC} ${WRN} ${DBG} ${DEF} ${SRC}"
 gcc -c ${INC} ${WRN} ${DBG} ${DEF} ${SRC}
+echo "g++ -c ${INC} ${WRN} ${DBG} ${DEF} ${SRCPP}"
 g++ -c ${INC} ${WRN} ${DBG} ${DEF} ${SRCPP}
-g++ -c ${INC} ${DBG} ${DEF} ${SRCPP2}
-g++ ${OBJ} ${OBJPP} ${LIB} -o${OUT}
-cd ..
+
+# restrict because compiling these can be unreasonably slow
+if [[ ! -f "${DIR}/bin/imgui.o" ]]; then
+	echo "g++ -c ${INC} ${DBG} ${DEF} ${SRCPP2}"
+	g++ -c ${INC} ${DBG} ${DEF} ${SRCPP2}
+fi
+echo "g++ ${OBJ} ${OBJPP} ${LIB} -o${OUT}"
+g++ ${OBJ} ${OBJPP} ${ILIB} ${LIB} -o${OUT}
+cd ${DIR}
+
+echo 
+echo Done.

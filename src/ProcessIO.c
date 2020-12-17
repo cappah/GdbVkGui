@@ -1,4 +1,6 @@
 #include "ProcessIO.h"
+#include "tlsf.h"
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -57,6 +59,41 @@ static char s_err[1024];
 
 static int s_frontend_to_gdb[2];
 static int s_gdb_to_frontend[2];
+
+static tlsf_t s_heap;
+static pool_t s_pool;
+
+//-----------------------------------------------------------------------------
+
+void
+InitMemoryArena(size_t mem_alloc_sz)
+{
+    if (s_heap) {
+        tlsf_destroy(s_heap);
+    }
+    s_pool = malloc(mem_alloc_sz);
+    assert(s_pool && "Failed to initialize memory arena");
+
+    s_heap = tlsf_create_with_pool(s_pool, mem_alloc_sz);
+}
+
+void*
+WmMalloc(size_t sz)
+{
+    return tlsf_malloc(s_heap, sz);
+}
+
+void*
+WmRealloc(void* ptr, size_t sz)
+{
+    return tlsf_realloc(s_heap, ptr, sz);
+}
+
+void
+WmFree(void* ptr)
+{
+    tlsf_free(s_heap, ptr);
+}
 
 //-----------------------------------------------------------------------------
 

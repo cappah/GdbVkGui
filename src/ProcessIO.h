@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -13,6 +14,14 @@ extern "C"
         uint32_t    m_MsgSz;
         const char* m_Msg;
     } GdbMsg;
+
+    //-----------------------------------------------------------------------------
+
+    void InitMemoryArena(size_t mem_alloc_sz);
+
+    void* WmMalloc(size_t sz);
+    void* WmRealloc(void* ptr, size_t sz);
+    void  WmFree(void* ptr);
 
     //-----------------------------------------------------------------------------
 

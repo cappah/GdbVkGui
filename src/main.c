@@ -61,6 +61,9 @@ main(const int argc, const char* argv[])
         PrintErr("Failed to open pipes for gdb communication: ");
     }
 
+    // initialize memory
+    InitMemoryArena((0x1 << 20) * 50); // 50 mb
+
     // frontend
     int fstate = fcntl(fd_frontend_to_gdb[1], F_GETFL, 0);
     fstate     = fstate | O_NONBLOCK;

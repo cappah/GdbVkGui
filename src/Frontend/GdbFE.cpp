@@ -238,7 +238,7 @@ ProcessWatchers(void)
 static void
 LoadResources(const LoadSettings* lset)
 {
-    s_finfo.m_Contents     = (char*)malloc(lset->m_MaxFileSz);
+    s_finfo.m_Contents     = (char*)WmMalloc(lset->m_MaxFileSz);
     s_finfo.m_ContentMaxSz = lset->m_MaxFileSz;
 }
 

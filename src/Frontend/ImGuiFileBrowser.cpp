@@ -83,7 +83,7 @@ ImGuiFileBrowser::closeDialog()
 
     input_fn[0] = '\0'; // Hide any text in Input bar for the next time save
                         // dialog is opened.
-    filter.Clear(); // Clear Filter for the next time open dialog is called.
+    filter.Clear();     // Clear Filter for the next time open dialog is called.
 
     show_inputbar_combobox = false;
     validate_file          = false;
@@ -597,8 +597,8 @@ ImGuiFileBrowser::renderButtonsAndCheckboxRegion()
             // directory but input bar has some text. In this case we chose to
             // open the directory instead of opening the file. Also note that we
             // don't need to access the selected file through "selected_idx"
-            // since the if a file is selected, input bar will get populated with
-            // that name.
+            // since the if a file is selected, input bar will get populated
+            // with that name.
             if (selected_idx >= 0 && is_dir)
                 show_error |= !(onDirClick(selected_idx));
             else if (strlen(input_fn) > 0) {
@@ -848,7 +848,8 @@ ImGuiFileBrowser::readDIR(std::string pathdir)
             current_path = current_directory;
 
             // Create a vector of each directory in the file path for the
-            // filepath bar. Not Necessary for linux as starting directory is "/"
+            // filepath bar. Not Necessary for linux as starting directory is
+            // "/"
             parsePathTabs(current_path);
         }
 #endif // OSWIN

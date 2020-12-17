@@ -303,13 +303,13 @@ TextEditor::AddUndo(UndoRecord& aValue)
     assert(!mReadOnly);
     // printf("AddUndo: (@%d.%d) +\'%s' [%d.%d .. %d.%d], -\'%s', [%d.%d ..
     // %d.%d] (@%d.%d)\n", 	aValue.mBefore.mCursorPosition.mLine,
-    //aValue.mBefore.mCursorPosition.mColumn, 	aValue.mAdded.c_str(),
-    //aValue.mAddedStart.mLine, aValue.mAddedStart.mColumn,
-    //aValue.mAddedEnd.mLine, aValue.mAddedEnd.mColumn, 	aValue.mRemoved.c_str(),
-    //aValue.mRemovedStart.mLine, aValue.mRemovedStart.mColumn,
-    //aValue.mRemovedEnd.mLine, aValue.mRemovedEnd.mColumn,
-    //	aValue.mAfter.mCursorPosition.mLine,
-    //aValue.mAfter.mCursorPosition.mColumn
+    // aValue.mBefore.mCursorPosition.mColumn, 	aValue.mAdded.c_str(),
+    // aValue.mAddedStart.mLine, aValue.mAddedStart.mColumn,
+    // aValue.mAddedEnd.mLine, aValue.mAddedEnd.mColumn,
+    // aValue.mRemoved.c_str(), aValue.mRemovedStart.mLine,
+    // aValue.mRemovedStart.mColumn, aValue.mRemovedEnd.mLine,
+    // aValue.mRemovedEnd.mColumn, 	aValue.mAfter.mCursorPosition.mLine,
+    // aValue.mAfter.mCursorPosition.mColumn
     //	);
 
     mUndoBuffer.resize((size_t)(mUndoIndex + 1));
@@ -1322,7 +1322,7 @@ TextEditor::EnterCharacter(ImWchar aChar, bool aShift)
                 std::swap(start, end);
             start.mColumn = 0;
             //			end.mColumn = end.mLine < mLines.size() ?
-            //mLines[end.mLine].size() : 0;
+            // mLines[end.mLine].size() : 0;
             if (end.mColumn == 0 && end.mLine > 0)
                 --end.mLine;
             if (end.mLine >= (int)mLines.size())
