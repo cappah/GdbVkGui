@@ -1737,16 +1737,19 @@ static int
 BeginPopupModal(lua_State* L)
 {
     int top = lua_gettop(L);
-    if (top >= 2) {
+    if (top >= 1) {
         const char* label  = luaL_checklstring(L, 1, nullptr);
-        bool        opened = (bool)lua_toboolean(L, 2);
+        bool        opened = false;
+		if (top > 1) {
+			opened = (bool)lua_toboolean(L, 2);
+		}
 
         ImGuiWindowFlags flags = 0;
         if (top > 2) {
             flags = (ImGuiWindowFlags)luaL_checkinteger(L, 3);
         }
 
-        lua_pushboolean(L, ImGui::BeginPopupModal(label, &opened, flags));
+        lua_pushboolean(L, ImGui::BeginPopupModal(label, top > 1 ? &opened : nullptr, flags));
         lua_pushboolean(L, opened);
     } else {
         assert(false && "Invalid arguments");

@@ -252,6 +252,16 @@ static LuaRefs s_app_upd;
 static int
 SetEditorTheme(lua_State* L);
 
+static int
+OpenFileDialog(lua_State* L);
+
+static void
+AddCFunc(lua_State* L, const char* name, lua_CFunction func)
+{
+    lua_pushcfunction(L, func);
+    lua_setglobal(L, name);
+}
+
 static void
 LoadResources(const LoadSettings* lset)
 {
@@ -273,8 +283,8 @@ LoadResources(const LoadSettings* lset)
     // hook up C-functions
     lua_State* lstate = GetLuaState();
 
-    lua_pushcfunction(lstate, SetEditorTheme);
-    lua_setglobal(lstate, "SetEditorTheme");
+    AddCFunc(lstate, "SetEditorTheme", SetEditorTheme);
+    AddCFunc(lstate, "FileDialog", OpenFileDialog);
 
     // initialize any neccessary lua state
     if (EnterLuaCallback(s_app_init.m_GlobalRef, s_app_init.m_FuncRef)) {
@@ -330,6 +340,26 @@ SetEditorTheme(lua_State* L)
             break;
     }
     return 0;
+}
+
+static int
+OpenFileDialog(lua_State* L)
+{
+	const char* name = (const char*)luaL_checkstring(L, 1);
+	Vec4 sz = { 0 };
+	ReadFBufferFromLua(sz.raw, 2, 2);
+
+    if (s_FileDlg.showFileDialog(
+          name,
+          imgui_addons::ImGuiFileBrowser::DialogMode::OPEN,
+          ImVec2(sz))) {
+
+		lua_pushstring(L, s_FileDlg.selected_path.c_str());
+    } else {
+		lua_pushnil(L);
+	}
+
+	return 1;
 }
 
 //-----------------------------------------------------------------------------
