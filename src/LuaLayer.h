@@ -17,7 +17,14 @@ extern "C"
 
     int EnterLuaCallback(int global_ref, int func_ref);
 
-    void ExitLuaCallback(void);
+    int ExitLuaCallback(void);
+
+    int GetLuaMethodReference(const char* l_class,
+                              const char* func,
+                              int*        global_handle); // = nullptr
+    int GetLuaGlobalReference(const int l_class, const char* func);
+
+    //------------------------------------------------------------------------------
 
     typedef struct Vec4
     {

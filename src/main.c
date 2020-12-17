@@ -8,6 +8,7 @@
 
 #include "Frontend/GdbFE.h"
 #include "Gui/GuiLayer.h"
+#include "LuaLayer.h"
 #include "ProcessIO.h"
 #include "Vulkan/VulkanLayer.h"
 #include "WindowInterface.h"
@@ -63,6 +64,9 @@ main(const int argc, const char* argv[])
 
     // initialize memory
     InitMemoryArena((0x1 << 20) * 50); // 50 mb
+
+    // initialize lua
+    InitLuaState();
 
     // frontend
     int fstate = fcntl(fd_frontend_to_gdb[1], F_GETFL, 0);

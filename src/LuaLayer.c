@@ -53,7 +53,7 @@ InitLuaState(void)
         lua_getfield(s_lstate, -1, "path");
         snprintf(new_path,
                  sizeof(new_path),
-                 "%s;%s/?.lua",
+                 "%s;%s/src/ProgramLayer/?.lua",
                  lua_tostring(s_lstate, -1),
                  ROOT_DIR);
 
@@ -100,11 +100,13 @@ ParseLuaFile(const char* filename)
         handle_lua_error();
         return 0;
     }
-    if (lua_resume(s_lstate, NULL, 0, NULL) != 0) {
+
+    int returned_vars = 0;
+    if (lua_resume(s_lstate, NULL, 0, &returned_vars) != 0) {
         handle_lua_error();
         // return false; // continue running lua thru errors
     }
-    return 1;
+    return returned_vars;
 }
 
 void
@@ -162,17 +164,92 @@ EnterLuaCallback(int global_ref, int func_ref)
     return 1;
 }
 
-void
-ExitLuaCallbackCritSection(void)
+int
+ExitLuaCallback(void)
 {
     int32_t num_args = s_glb_ref > 0 ? 2 : 1; // global table for member func
-    if (lua_resume(s_lstate, NULL, num_args, NULL) != 0) {
+    int     returned_vars = 0;
+    if (lua_resume(s_lstate, NULL, num_args, &returned_vars) != 0) {
         handle_lua_error();
     }
 
     // clear static mutex data
     s_glb_ref  = -1;
     s_func_ref = -1;
+
+    return returned_vars;
+}
+
+int
+GetLuaMethodReference(const char* l_class, const char* func, int* global_handle)
+{
+    if (l_class) {
+        // find class function
+
+        lua_getglobal(s_lstate, l_class);
+        if (CheckLuaStackNil(-1)) {
+            printf("<%s> global doesn't exist.\n", l_class);
+        }
+
+        lua_getfield(s_lstate, -1, func);
+
+        if (CheckLuaStackNil(-1)) {
+            printf("<%s>::<%s> function doesn't exist.\n", l_class, func);
+        } else {
+            // remove global table from stack once class function found
+            lua_rotate(s_lstate, 1, -1);
+
+            if (global_handle) {
+                *global_handle = luaL_ref(s_lstate, LUA_REGISTRYINDEX);
+            } else {
+                lua_pop(s_lstate, 1);
+            }
+        }
+    } else {
+        // find global
+
+        lua_getglobal(s_lstate, func);
+
+        if (CheckLuaStackNil(-1)) {
+            printf("<%s> global function/class doesn't exist.\n", func);
+        }
+    }
+
+    int32_t t = lua_type(s_lstate, -1);
+
+    if (t == LUA_TFUNCTION || t == LUA_TTABLE) {
+        return luaL_ref(s_lstate, LUA_REGISTRYINDEX);
+    } else {
+        lua_pop(s_lstate, 1); // remove nil from stack
+    }
+    return LUA_REFNIL;
+}
+
+int
+GetLuaGlobalReference(const int l_class, const char* func)
+{
+    if (l_class == LUA_REFNIL) {
+        return LUA_REFNIL;
+    }
+
+    // add class object to the stack
+    lua_rawgeti(s_lstate, LUA_REGISTRYINDEX, l_class);
+
+    if (!CheckLuaStackNil(-1)) {
+        lua_getfield(s_lstate, -1, func); // get function
+
+        if (!CheckLuaStackNil(-1)) {
+            // remove global table from stack once class function found
+            lua_rotate(s_lstate, 1, -1);
+            lua_pop(s_lstate, 1);
+            // make sure value retrieved is a function
+            int t = lua_type(s_lstate, -1);
+            if (t == LUA_TFUNCTION) {
+                return luaL_ref(s_lstate, LUA_REGISTRYINDEX);
+            }
+        }
+    }
+    return LUA_REFNIL;
 }
 
 //------------------------------------------------------------------------------

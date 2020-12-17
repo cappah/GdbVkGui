@@ -24,7 +24,8 @@ OBJ="${DIR}bin/main.o\
  ${DIR}bin/tlsf.o"
 
 SRCPP="${DIR}src/Gui/GuiLayer.cpp\
- ${DIR}src/Gui/ImguiToLua.cpp"
+ ${DIR}src/Gui/ImguiToLua.cpp\
+ ${DIR}src/Frontend/GdbFE.cpp"
 SRCPP2="${DIR}imgui/imgui_impl_vulkan.cpp\
  ${DIR}imgui/imgui_widgets.cpp\
  ${DIR}imgui/imgui_tables.cpp\

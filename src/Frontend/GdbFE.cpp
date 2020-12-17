@@ -1,14 +1,19 @@
 #include "Frontend/GdbFE.h"
 #include "Frontend/ImGuiFileBrowser.h"
 #include "Frontend/TextEditor.h"
+#include "LuaLayer.h"
 #include "ProcessIO.h"
 #include "UtilityMacros.h"
 #include "imgui.h"
+#include "lua.hpp"
 #include <sstream>
 #include <stdlib.h>
 
 static int
 MainWindow(void);
+
+static int
+LuaUpdate(void);
 
 static void
 LoadResources(const LoadSettings* lset);
@@ -19,7 +24,7 @@ extern "C"
 #endif
 
     void InitFrontend(const LoadSettings* lset) { LoadResources(lset); }
-    int  DrawFrontend(void) { return MainWindow(); }
+    int  DrawFrontend(void) { return LuaUpdate(); }
 
 #ifdef __cplusplus
 }
@@ -235,12 +240,99 @@ ProcessWatchers(void)
 
 //------------------------------------------------------------------------------
 
+struct LuaRefs
+{
+    int32_t m_GlobalRef;
+    int32_t m_FuncRef;
+};
+
+static LuaRefs s_app_init;
+static LuaRefs s_app_upd;
+
+static int
+SetEditorTheme(lua_State* L);
+
 static void
 LoadResources(const LoadSettings* lset)
 {
     s_finfo.m_Contents     = (char*)WmMalloc(lset->m_MaxFileSz);
     s_finfo.m_ContentMaxSz = lset->m_MaxFileSz;
+
+    ParseLuaFile(ROOT_DIR "src/ProgramLayer/AppMain.lua");
+
+    int32_t init_g_ref, init_f_ref;
+    init_f_ref = GetLuaMethodReference("GdbApp", "Init", &init_g_ref);
+    s_app_init.m_GlobalRef = init_g_ref;
+    s_app_init.m_FuncRef   = init_f_ref;
+
+    int32_t upd_g_ref, upd_f_ref;
+    upd_f_ref = GetLuaMethodReference("GdbApp", "Update", &upd_g_ref);
+    s_app_upd.m_GlobalRef = upd_g_ref;
+    s_app_upd.m_FuncRef   = upd_f_ref;
+
+    // hook up C-functions
+    lua_State* lstate = GetLuaState();
+
+    lua_pushcfunction(lstate, SetEditorTheme);
+    lua_setglobal(lstate, "SetEditorTheme");
+
+    // initialize any neccessary lua state
+    if (EnterLuaCallback(s_app_init.m_GlobalRef, s_app_init.m_FuncRef)) {
+        // push arguments
+
+        // lua_pushinteger(lstate, 1);
+        // lua_pushstring(lstate, "This");
+        // lua_settable(lstate, -3);
+
+        // lua_pushinteger(lstate, 2);
+        // lua_pushstring(lstate, "IS");
+        // lua_settable(lstate, -3);
+
+        // lua_pushinteger(lstate, 3);
+        // lua_pushstring(lstate, "SPARTA");
+        // lua_settable(lstate, -3);
+
+        ExitLuaCallback();
+    }
 }
+
+static int
+LuaUpdate(void)
+{
+    UNUSED_VAR(MainWindow);
+
+    ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+
+    if (EnterLuaCallback(s_app_upd.m_GlobalRef, s_app_upd.m_FuncRef)) {
+
+        ExitLuaCallback();
+    }
+
+    return 0;
+}
+
+static int
+SetEditorTheme(lua_State* L)
+{
+    uint32_t idx = (int32_t)luaL_checkinteger(L, 1);
+    switch (idx) {
+        case 1:
+            s_editor.SetPalette(TextEditor::GetDarkPalette());
+            break;
+        case 2:
+            s_editor.SetPalette(TextEditor::GetLightPalette());
+            break;
+        case 3:
+            s_editor.SetPalette(TextEditor::GetRetroBluePalette());
+            break;
+        default:
+            s_editor.SetPalette(TextEditor::GetDarkPalette());
+            break;
+    }
+    return 0;
+}
+
+//-----------------------------------------------------------------------------
 
 static int
 MainWindow(void)
