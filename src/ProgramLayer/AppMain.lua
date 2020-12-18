@@ -15,6 +15,9 @@ GdbApp = {
 		{ 2, "GdbData" },
 	},
 
+	local_vars = {},
+	get_local_types = false,
+
 	output_txt = "",
 	local_vars_txt = "",
 	frame_info_txt = "",

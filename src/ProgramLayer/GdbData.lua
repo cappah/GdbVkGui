@@ -1,5 +1,7 @@
 -- Module that communicates w/ Gdb
 
+local Json = require "JSON"
+
 local GdbData = {}
 
 function GdbData.UpdateFile(data, title, file, line, column)
@@ -34,14 +36,44 @@ function GdbData.Next(data, input)
 end
 
 function GdbData.UpdateFramePos(data, input)
-	data.frame_info_txt = tostring(input)
 	if type(input) == "string" then
-		local _, _, short = input:find("file=\"([%w%s_/%.]*)\"")
-		local _, _, full = input:find("fullname=\"([%w%s_/%.]*)\"")
-		local _, _, line = input:find("line=\"(%d*)\"")
-		--print(string.format("Frame : %s, %s, %s", short, full, tostring(line)))
-		if short and full and line then
-			GdbData.UpdateFile(data, short, full, line, 0)
+		local _, _, frame = input:find("frame=(.*)")
+		if frame then 
+			data.frame_info_txt = tostring(frame)
+
+			local _, _, short = frame:find("file=\"([%w%s_/%.]*)\"")
+			local _, _, full = frame:find("fullname=\"([%w%s_/%.,]*)\"")
+			local _, _, line = frame:find("line=\"(%d*)\"")
+			--print(string.format("Frame : %s, %s, %s", short, full, tostring(line)))
+			if short and full and line then
+				GdbData.UpdateFile(data, short, full, line, 0)
+			end
+		end
+	end
+end
+
+function GdbData.UpdateLocals(data, input)
+	for locals in input:gmatch("locals=%[(.*)%]") do
+
+		-- interpret as json array and transform into lua table
+		locals = locals:gsub("{name=", "{\"name\":")
+		locals = locals:gsub(",value=", ",\"value\":")
+		local new_data = "{\"locals\":["..locals.."]}"
+		new_data = Json:decode(new_data)
+		data.local_vars = new_data.locals
+
+		data.local_vars_txt = Json:encode_pretty(new_data)
+
+		if data.get_local_types == false then return end
+
+		-- get type of each top level variable
+		for _, var in ipairs(new_data.locals) do
+			print("Var name : "..var.name)
+			if SendToGdb("whatis "..var.name) then
+				local t = ReadFromGdb()
+				local _, _, vtype = t:find("type = ([%w%s_%*]*)\\")
+				var.vtype = vtype
+			end
 		end
 	end
 end

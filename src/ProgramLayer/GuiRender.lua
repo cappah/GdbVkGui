@@ -24,7 +24,12 @@ function GuiRender.Present(data)
 		{ id = "Continue",
 		  args = { "-exec-continue" },
 		  parse = GdbData.UpdateFramePos },
+		{ id = "Locals",
+		  args = { "-stack-list-locals", "1" },
+		  parse = GdbData.UpdateLocals },
 	}
+
+	local trigger_updates = false
 
 	---------------------------------------------------------------------------
 	-- Shortcut keys
@@ -64,8 +69,9 @@ function GuiRender.Present(data)
 			if SendToGdb("-exec-run --start") then
 				local response <const> = ReadFromGdb()
 				data.output_txt = response
-
 				GdbData.UpdateFramePos(data, ExecuteCmd("-stack-info-frame"))
+
+				trigger_updates = true
 			end
 		end
 	end
@@ -91,10 +97,16 @@ function GuiRender.Present(data)
 
 			if ImGui.SmallButton("reload##reload_mod"..i) then
 				data.force_reload = i
+				trigger_updates = true
+
 				ImGui.CloseCurrentPopup()
 			end
 		end
 		
+		if ImGui.Button("Cancel##reload_mod0") then
+			ImGui.CloseCurrentPopup()
+		end
+
 		ImGui.EndPopup()
 	end
 
@@ -115,10 +127,17 @@ function GuiRender.Present(data)
 	for _, val in ipairs(buttons) do
 		if ImGui.Button(val.id) then
 			val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+			trigger_updates = true
 		end
 	end
 
 	ImGui.End()
+
+	------------------------------------------------------------------------
+	
+	if trigger_updates then
+		GdbData.UpdateLocals(data, ExecuteCmd("-stack-list-locals 1"))
+	end
 
 	------------------------------------------------------------------------
 
@@ -127,13 +146,19 @@ function GuiRender.Present(data)
 	ImGui.TextWrapped(data.output_txt)
 	ImGui.Separator()
 
-	ImGui.TextWrapped(data.local_vars_txt)
-	ImGui.Separator()
-
 	ImGui.TextWrapped(data.frame_info_txt)
 
 	ImGui.End()
 
+	------------------------------------------------------------------------
+	
+	ImGui.Begin("Locals")
+
+	ImGui.TextWrapped(data.local_vars_txt)
+	ImGui.Separator()
+
+	ImGui.End()
+	
 	------------------------------------------------------------------------
 end
 
