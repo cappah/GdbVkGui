@@ -2,7 +2,7 @@
 
 local GuiRender = {}
 
-function GuiRender.Present(data)
+function GuiRender.Present(data, width, height)
 	local ImGui   = ImGuiLib
 	local GdbData = GdbData
 
@@ -59,7 +59,7 @@ function GuiRender.Present(data)
 	------------------------------------------------------------------------
 	-- load exe to gdb and set temp breakpoint in main
 
-	local ename <const> = FileDialog("Open Executable to Debug", { 600, 300 } )
+	local ename <const> = FileDialog("Open Executable to Debug", { width * 0.7, height * 0.5 } )
 	if ename then
 		data.exe_filename = ename
 

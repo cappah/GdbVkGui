@@ -67,7 +67,7 @@ function GdbApp:Update(args)
 		ImGui.EndMainMenuBar()
 	end
 
-	GuiRender.Present(GdbApp)
+	GuiRender.Present(GdbApp, args.win_width, args.win_height)
 
 	-- module reloading
 	
