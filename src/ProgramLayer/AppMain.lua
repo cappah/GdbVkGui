@@ -1,17 +1,18 @@
 -- Main app module. Should be skeleton that stores data and calls through to
 -- modules that save no state
 
-local ImGui     = ImGuiLib
-local GuiRender = require "GuiRender"
+ImGui     = ImGuiLib
+GuiRender = require "GuiRender"
+GdbData   = require "GdbData"
 
 GdbApp = {
-	open_exe = "",
 	exe_filename = "",
-	open_file = { short = "", full = "" },
+	open_file = { short = "", full = "", is_open = false },
 
 	force_reload = nil,
 	module_list = {
 		{ 1, "GuiRender" },
+		{ 2, "GdbData" },
 	},
 
 	output_txt = "",
@@ -63,7 +64,7 @@ function GdbApp:Update(args)
 		ImGui.EndMainMenuBar()
 	end
 
-	GuiRender:Present(GdbApp)
+	GuiRender.Present(GdbApp)
 
 	-- module reloading
 	
@@ -71,12 +72,13 @@ function GdbApp:Update(args)
 		local idx <const> = self.force_reload
 		self.force_reload = nil
 
-		print("Attempting to reload: \""..self.module_list[idx][2].."\"")
+		print("Reloading: \""..self.module_list[idx][2].."\"...")
 		package.loaded[self.module_list[idx][2]] = nil
 
-		-- TODO : figure out better scheme
-		if self.module_list[idx][1] then
+		if self.module_list[idx][1] == 1 then 
 			GuiRender = require(self.module_list[idx][2])
+		elseif self.module_list[idx][1] == 2 then
+			GdbData = require(self.module_list[idx][2])
 		end
 	end
 end

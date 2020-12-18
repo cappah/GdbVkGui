@@ -178,26 +178,27 @@ GetGdbResponse(char buff[] = nullptr, int32_t buff_sz = -1)
     }
 
     GdbMsg resp = GdbOutput();
-    if (resp.m_MsgSz && resp.m_MsgSz < (uint32_t)buff_sz) {
-        std::istringstream ss(resp.m_Msg);
+    if (resp.m_MsgSz && (resp.m_MsgSz < (uint32_t)buff_sz)) {
+        UNUSED_VAR(FixNewLines);
+        // std::istringstream ss(resp.m_Msg);
 
-        uint32_t offset = 0;
+        // uint32_t offset = 0;
 
-        std::string line;
-        while (std::getline(ss, line)) {
-            if (line[0] == '~' || line[0] == '&' || line[0] == '^' ||
-                line[0] == '*') {
-                FixNewLines(line);
+        // std::string line;
+        // while (std::getline(ss, line)) {
+        //    if (line[0] == '~' || line[0] == '&' || line[0] == '^' ||
+        //        line[0] == '*') {
+        //        FixNewLines(line);
 
-                UNUSED_VAR(FixNewLines);
-                memcpy(buff + offset, line.c_str(), line.size());
-                offset += line.size();
-                buff[offset] = '\n';
-            }
-        }
-        buff[offset] = '\0';
-        // memcpy(buff, resp.m_Msg, resp.m_MsgSz);
-        // buff[resp.m_MsgSz] = 0;
+        //        UNUSED_VAR(FixNewLines);
+        //        memcpy(buff + offset, line.c_str(), line.size());
+        //        offset += line.size();
+        //        buff[offset] = '\n';
+        //    }
+        //}
+        // buff[offset] = '\0';
+        memcpy(buff, resp.m_Msg, resp.m_MsgSz);
+        buff[resp.m_MsgSz] = 0;
     } else {
         // TODO : process error when reading gdb reply
     }
@@ -255,6 +256,21 @@ SetEditorTheme(lua_State* L);
 static int
 OpenFileDialog(lua_State* L);
 
+static int
+SendToGdb(lua_State* L);
+
+static int
+ReadFromGdb(lua_State* L);
+
+static int
+SetEditorFile(lua_State* L);
+
+static int
+SetEditorFileLineNum(lua_State* L);
+
+static int
+ShowTextEditor(lua_State* L);
+
 static void
 AddCFunc(lua_State* L, const char* name, lua_CFunction func)
 {
@@ -285,6 +301,11 @@ LoadResources(const LoadSettings* lset)
 
     AddCFunc(lstate, "SetEditorTheme", SetEditorTheme);
     AddCFunc(lstate, "FileDialog", OpenFileDialog);
+    AddCFunc(lstate, "SendToGdb", SendToGdb);
+    AddCFunc(lstate, "ReadFromGdb", ReadFromGdb);
+    AddCFunc(lstate, "SetEditorFile", SetEditorFile);
+    AddCFunc(lstate, "SetEditorFileLineNum", SetEditorFileLineNum);
+    AddCFunc(lstate, "ShowTextEditor", ShowTextEditor);
 
     // initialize any neccessary lua state
     if (EnterLuaCallback(s_app_init.m_GlobalRef, s_app_init.m_FuncRef)) {
@@ -345,21 +366,88 @@ SetEditorTheme(lua_State* L)
 static int
 OpenFileDialog(lua_State* L)
 {
-	const char* name = (const char*)luaL_checkstring(L, 1);
-	Vec4 sz = { 0 };
-	ReadFBufferFromLua(sz.raw, 2, 2);
+    const char* name = (const char*)luaL_checkstring(L, 1);
+    Vec4        sz   = { 0 };
+    ReadFBufferFromLua(sz.raw, 2, 2);
 
     if (s_FileDlg.showFileDialog(
-          name,
-          imgui_addons::ImGuiFileBrowser::DialogMode::OPEN,
-          ImVec2(sz))) {
+          name, imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(sz))) {
 
-		lua_pushstring(L, s_FileDlg.selected_path.c_str());
+        lua_pushstring(L, s_FileDlg.selected_path.c_str());
     } else {
-		lua_pushnil(L);
-	}
+        lua_pushnil(L);
+    }
 
-	return 1;
+    return 1;
+}
+
+static int
+SendToGdb(lua_State* L)
+{
+    const char* cmd = (const char*)luaL_checkstring(L, 1);
+
+    bool sent = SendCommand("%s", cmd);
+    lua_pushboolean(L, sent);
+
+    return 1;
+}
+
+static int
+ReadFromGdb(lua_State* L)
+{
+    GetGdbResponse();
+
+    lua_pushstring(L, s_output_text);
+
+    return 1;
+}
+
+static int
+SetEditorFile(lua_State* L)
+{
+    const char* fname    = (const char*)luaL_checkstring(L, 1);
+    uint32_t    line_num = (uint32_t)luaL_checkinteger(L, 2);
+    uint32_t    clmn_num = (uint32_t)luaL_checkinteger(L, 3);
+
+    bool success = false;
+
+    if (ReadFile(fname, &s_finfo)) {
+        s_editor.SetText(s_finfo.m_Contents);
+        s_editor.SetReadOnly(true);
+
+        line_num = CLAMP(line_num - 1, 0, (uint32_t)s_editor.GetTotalLines());
+
+        TextEditor::Coordinates cpos(line_num, clmn_num);
+        s_editor.SetCursorPosition(cpos);
+
+        success = true;
+    }
+    lua_pushboolean(L, success);
+    return 1;
+}
+
+static int
+SetEditorFileLineNum(lua_State* L)
+{
+    uint32_t line_num = (uint32_t)luaL_checkinteger(L, 1);
+    uint32_t clmn_num = (uint32_t)luaL_checkinteger(L, 2);
+
+    line_num = CLAMP(line_num - 1, 0, (uint32_t)s_editor.GetTotalLines());
+
+    TextEditor::Coordinates cpos(line_num, clmn_num);
+    s_editor.SetCursorPosition(cpos);
+
+    return 0;
+}
+
+static int
+ShowTextEditor(lua_State* L)
+{
+    UNUSED_VAR(L);
+
+    s_editor.Render("Editor");
+
+    return 0;
 }
 
 //-----------------------------------------------------------------------------

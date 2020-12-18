@@ -233,6 +233,11 @@ GetItemRectSize(lua_State* L);
 static int
 SetItemAllowOverlap(lua_State* L);
 
+// io management
+
+static int
+IsKeyPressed(lua_State* L);
+
 /*
  * Reimplemented functions
  */
@@ -315,6 +320,7 @@ static const struct luaL_Reg s_imgui_lib[] = {
     { "GetItemRectMax", GetItemRectMax },
     { "GetItemRectSize", GetItemRectSize },
     { "SetItemAllowOverlap", SetItemAllowOverlap },
+    { "IsKeyPressed", IsKeyPressed },
     { NULL, NULL }
 };
 
@@ -1740,16 +1746,17 @@ BeginPopupModal(lua_State* L)
     if (top >= 1) {
         const char* label  = luaL_checklstring(L, 1, nullptr);
         bool        opened = false;
-		if (top > 1) {
-			opened = (bool)lua_toboolean(L, 2);
-		}
+        if (top > 1) {
+            opened = (bool)lua_toboolean(L, 2);
+        }
 
         ImGuiWindowFlags flags = 0;
         if (top > 2) {
             flags = (ImGuiWindowFlags)luaL_checkinteger(L, 3);
         }
 
-        lua_pushboolean(L, ImGui::BeginPopupModal(label, top > 1 ? &opened : nullptr, flags));
+        lua_pushboolean(
+          L, ImGui::BeginPopupModal(label, top > 1 ? &opened : nullptr, flags));
         lua_pushboolean(L, opened);
     } else {
         assert(false && "Invalid arguments");
@@ -1976,6 +1983,32 @@ SetItemAllowOverlap(lua_State* L)
     ImGui::SetItemAllowOverlap();
 
     return 0;
+}
+
+//-----------------------------------------------------------------------------
+
+static int
+IsKeyPressed(lua_State* L)
+{
+    int  top        = lua_gettop(L);
+    bool is_pressed = false;
+
+    if (top == 1) {
+        const char* keyname = luaL_checklstring(L, 1, nullptr);
+        ImGuiIO&    io      = ImGui::GetIO();
+
+        if (STR_EQ("ctrl", keyname)) {
+            is_pressed = io.KeyCtrl;
+        } else if (STR_EQ("alt", keyname)) {
+            is_pressed = io.KeyAlt;
+        } else if (STR_EQ("shift", keyname)) {
+            is_pressed = io.KeyShift;
+        } else {
+            is_pressed = ImGui::IsKeyPressed(keyname[0]);
+        }
+    }
+    lua_pushboolean(L, is_pressed);
+    return 1;
 }
 
 //-----------------------------------------------------------------------------

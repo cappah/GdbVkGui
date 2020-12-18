@@ -1,10 +1,45 @@
 -- Gui render module
 
-local ImGui = ImGuiLib
-
 local GuiRender = {}
 
-function GuiRender:Present(data)
+function GuiRender.Present(data)
+	local ImGui   = ImGuiLib
+	local GdbData = GdbData
+
+	local ExecuteCmd = function(cmd) if SendToGdb(cmd) then return ReadFromGdb() end end
+
+	local buttons = {
+		{ id    = "Update Stack Frame", 
+		  args  = { "-stack-info-frame" }, 
+		  parse = GdbData.UpdateFramePos },
+		{ id = "Next",
+		  args = { "-exec-next" },
+		  parse = GdbData.Next },
+		{ id = "Step Into",
+		  args = { "-exec-step" },
+		  parse = GdbData.UpdateFramePos },
+		{ id = "Finish",
+		  args = { "-exec-finish" },
+		  parse = GdbData.UpdateFramePos },
+		{ id = "Continue",
+		  args = { "-exec-continue" },
+		  parse = GdbData.UpdateFramePos },
+	}
+
+	---------------------------------------------------------------------------
+	-- Shortcut keys
+	if ImGui.IsKeyPressed("o") and ImGui.IsKeyPressed("ctrl") then
+		data.open_dialog = true
+	end
+	if ImGui.IsKeyPressed("e") and ImGui.IsKeyPressed("ctrl") then
+		data.open_dialog_exe = true
+	end
+	if ImGui.IsKeyPressed("r") and ImGui.IsKeyPressed("ctrl") then
+		data.reload_module = true
+	end
+
+	---------------------------------------------------------------------------
+
 	if data.open_dialog then
 		ImGui.OpenPopup("Open File")
 		data.open_dialog = false
@@ -16,16 +51,33 @@ function GuiRender:Present(data)
 		data.reload_module = false
 	end
 
-	local ename <close> = FileDialog("Open Executable to Debug", { 600, 300 } )
-	if fname then
-		data.exe_filename = fname
+	------------------------------------------------------------------------
+	-- load exe to gdb and set temp breakpoint in main
+
+	local ename <const> = FileDialog("Open Executable to Debug", { 600, 300 } )
+	if ename then
+		data.exe_filename = ename
+
+		local cmd_exe = string.format("-file-exec-and-symbols %s", ename)
+		if SendToGdb(cmd_exe) then
+			_ = ReadFromGdb()
+			if SendToGdb("-exec-run --start") then
+				local response <const> = ReadFromGdb()
+				data.output_txt = response
+
+				GdbData.UpdateFramePos(data, ExecuteCmd("-stack-info-frame"))
+			end
+		end
 	end
 
-	local fname <close> = FileDialog("Open File", { 600, 300 } )
+	local fname <const> = FileDialog("Open File", { 600, 300 } )
 	if fname then
 		data.new_file = fname
 	end
 
+	------------------------------------------------------------------------
+	-- UI for reloading modules
+	
 	local clicked, _ = ImGui.BeginPopupModal("Reload Module")
 	if clicked then
 		ImGui.Text("Select module to reload :")
@@ -48,12 +100,24 @@ function GuiRender:Present(data)
 
 	------------------------------------------------------------------------
 	
-	ImGui.Begin(string.format("%s##CodeWnd", data.open_file.short))
+	ImGui.Begin(string.format("%s###CodeWnd", data.open_file.short))
+
+	if data.open_file.is_open then
+		ShowTextEditor()
+	end
+
 	ImGui.End()
 
 	------------------------------------------------------------------------
 	
 	ImGui.Begin("Watch1")
+
+	for _, val in ipairs(buttons) do
+		if ImGui.Button(val.id) then
+			val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+		end
+	end
+
 	ImGui.End()
 
 	------------------------------------------------------------------------
@@ -69,6 +133,8 @@ function GuiRender:Present(data)
 	ImGui.TextWrapped(data.frame_info_txt)
 
 	ImGui.End()
+
+	------------------------------------------------------------------------
 end
 
 return GuiRender
