@@ -100,6 +100,74 @@ function GdbData.UpdateBacktrace(data, input)
 	end
 end
 
+function GdbData.GetTrackedRegisters(data)
+	-- currently hardcode most used
+	-- TODO : allow naming/modifying list
+	data.registers = {
+		rax = { number = -1, id = "rax", value = "" },
+		rbx = { number = -1, id = "rbx", value = "" },
+		rcx = { number = -1, id = "rcx", value = "" },
+		rdx = { number = -1, id = "rdx", value = "" },
+		rsi = { number = -1, id = "rsi", value = "" },
+		rdi = { number = -1, id = "rdi", value = "" },
+		rbp = { number = -1, id = "rbp", value = "" },
+		rsp = { number = -1, id = "rsp", value = "" },
+		eax = { number = -1, id = "eax", value = "" },
+		ebx = { number = -1, id = "ebx", value = "" },
+		ecx = { number = -1, id = "ecx", value = "" },
+		edx = { number = -1, id = "edx", value = "" },
+		esi = { number = -1, id = "esi", value = "" },
+		edi = { number = -1, id = "edi", value = "" },
+		ebp = { number = -1, id = "ebp", value = "" },
+		esp = { number = -1, id = "esp", value = "" },
+	}
+end
+
+function GdbData.SetupRegisterDataCmd(data)
+	local cmd = { "-data-list-register-values", "r", }
+
+	for name, val in pairs(data.registers) do
+		if val.number >= 0 then cmd[#cmd + 1] = tostring(val.number) end
+	end
+
+	return cmd
+end
+
+function GdbData.SetTrackedRegisters(data, input)
+	GdbData.GetTrackedRegisters(data)
+
+	local _, _, regs = input:find("register%-names=%[(.*)%]")
+	if regs then
+		local regs_chunk = load("return {"..regs.."}")
+		if regs_chunk then
+			local found_regs = regs_chunk()
+			for idx, val in ipairs(found_regs) do
+				if data.registers[val] then 
+					data.registers[val].number = idx - 1;
+					--print(string.format("Reg: %s = %d", val, idx - 1))
+				end
+			end
+		end
+	end
+end
+
+function GdbData.UpdateRegisters(data, input)
+	-- register-values=[{number="195",value="0xffffde68"},{number="198",value="0xffffdd78"},
+	local _, _, regs_vals = input:find("register%-values=%[(.*)%]")
+	if regs_vals then
+		local regv_chunk = load("return {"..regs_vals.."}")
+		if regv_chunk then
+			local regv = regv_chunk()
+			for _, reg in pairs(data.registers) do
+				for _, regv_i in ipairs(regv) do
+					reg.value = reg.number == tonumber(regv_i.number) and regv_i.value or reg.value 
+					--if reg.value ~= "" then print(reg.id.." : "..reg.value) end
+				end
+			end
+		end
+	end
+end
+
 function GdbData.GetVCard(local_vars)
 	for _, var in ipairs(local_vars) do
 		if SendToGdb("whatis "..var.name) then

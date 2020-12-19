@@ -21,6 +21,8 @@ GdbApp = {
 	asm = {},
 	bktrace = {},
 
+	registers = nil,
+
 	curr_stack_frame = 1,
 
 	output_txt = "",

@@ -15,60 +15,80 @@ function GuiRender.Present(data, width, height)
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = false,
 		  invisible = true,
+		  mod_args  = nil,
+		  auto_upd  = false,
 	    },
 		{ id        = "Next",
 		  args      = { "-exec-next" },
 		  parse     = GdbData.Next, 
 		  upd_frame = true,
 		  invisible = false,
+		  mod_args  = nil,
+		  auto_upd  = false,
 	    },
 		{ id        = "Step Into",
 		  args      = { "-exec-step" },
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = true,
 		  invisible = false,
+		  mod_args  = nil,
+		  auto_upd  = false,
 	    },
 		{ id	    = "Finish",
 		  args      = { "-exec-finish" },
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = true, 
 		  invisible = false,
+		  mod_args  = nil,
+		  auto_upd  = false,
 	    },
 		{ id        = "Continue",
 		  args      = { "-exec-continue" },
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = true, 
 		  invisible = false,
+		  mod_args  = nil,
+		  auto_upd  = false,
 	    },
 		{ id        = "Locals",
 		  args      = { "-stack-list-locals", "1" },
 		  parse     = GdbData.UpdateLocals, 
 		  upd_frame = false, 
 		  invisible = true,
+		  mod_args  = nil,
+		  auto_upd  = true,
 	    },
 		{ id        = "Disassembly",
-		  args      = { "-data-disassemble", "-s \"$pc", "- 30\"", "-e \"$pc", "+ 30\"", "-- 0" },
+		  args      = { "-data-disassemble", "-s \"$pc -", "30\"", "-e \"$pc + ", "30\"", "-- 0" },
 		  parse     = GdbData.UpdateAsm, 
 		  upd_frame = false, 
 		  invisible = true,
+		  mod_args  = nil,
+		  auto_upd  = true,
 	    },
 		{ id        = "Backtrace",
 		  args      = { "-stack-list-frames" },
 		  parse     = GdbData.UpdateBacktrace, 
 		  upd_frame = false, 
 		  invisible = true,
+		  mod_args  = nil,
+		  auto_upd  = true,
 	    },
 		{ id        = "Registers",
 		  args      = { "-data-list-register-names" },
-		  parse     = PrintFrame, 
+		  parse     = GdbData.SetTrackedRegisters, 
 		  upd_frame = false, 
-		  invisible = false,
+		  invisible = true,
+		  mod_args  = nil,
+		  auto_upd  = false,
 	    },
 		{ id        = "Register Values",
-		  args      = { "-data-list-register-values", "r", "1", "16" },
-		  parse     = PrintFrame, 
-		  upd_frame = false, 
-		  invisible = false,
+		  args      = { "-data-list-register-values", "r", "1" },
+		  parse     = GdbData.UpdateRegisters, 
+		  upd_frame = true, 
+		  invisible = true,
+		  mod_args  = GdbData.SetupRegisterDataCmd,
+		  auto_upd  = true,
 	    },
 	}
 
@@ -116,6 +136,8 @@ function GuiRender.Present(data, width, height)
 				data.output_txt = response
 
 				GdbData.UpdateBreakpoint(data, ExecuteCmd("-stack-info-frame"))
+				ReadFromGdb()
+				GdbData.SetTrackedRegisters(data, ExecuteCmd("-data-list-register-names"))
 				trigger_updates = true
 			end
 		end
@@ -157,11 +179,15 @@ function GuiRender.Present(data, width, height)
 
 	------------------------------------------------------------------------
 	
-	ImGui.Begin("Watch1")
+	ImGui.Begin("Shortcuts")
 
 	for _, val in ipairs(buttons) do
 		if (val.invisible == false) and ImGui.Button(val.id) then
-			val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+			if val.mod_args then
+				val.parse(data, ExecuteCmd(table.concat(val.mod_args(data), " ")))
+			else
+				val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+			end
 
 			-- this command resets to stack trace to lowest frame
 			if val.upd_frame then data.curr_stack_frame = 1 end
@@ -233,6 +259,7 @@ function GuiRender.Present(data, width, height)
 			local upd_flag = val.id == "Locals" 
 				or val.id == "Disassembly"
 				or val.id == "Update Stack Frame"
+				or val.id == "Register Values"
 
 			if upd_flag then
 				val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
@@ -247,12 +274,12 @@ function GuiRender.Present(data, width, height)
 	if trigger_updates then
 		---GdbData.UpdateLocals(data, ExecuteCmd("-stack-list-locals 1"))
 		for _, val in ipairs(buttons) do
-			local upd_flag = val.id == "Locals" 
-				or val.id == "Disassembly" 
-				or val.id == "Backtrace"
-
-			if upd_flag then
-				val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+			if val.auto_upd then
+				if val.mod_args then
+					val.parse(data, ExecuteCmd(table.concat(val.mod_args(data), " ")))
+				else
+					val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+				end
 			end
 		end
 	end
@@ -270,6 +297,10 @@ function GuiRender.Present(data, width, height)
 
 	------------------------------------------------------------------------
 	
+	-- force size on columns
+	-- kinda hacky way to get what I want here
+	local spacing20 = "                    "
+
 	ImGui.Begin("Locals")
 
 	local txt = "Retrieve type info (requires round trip thru GDB)"
@@ -279,16 +310,13 @@ function GuiRender.Present(data, width, height)
 	end
 
 	if ImGui.BeginTable("##local_vars", 3) then
-		-- force size on columns
-		-- kinda hacky way to get what I want here
-		local spacing10 = "          "
 		ImGui.TableNextRow()
 		ImGui.TableSetColumnIndex(0)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "name")
 		ImGui.TableSetColumnIndex(1)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "type")
 		ImGui.TableSetColumnIndex(2)
-		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "data                                                      ")
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, string.format("data%s%s%s", spacing20, spacing20, spacing20))
 
 		for i, var in ipairs(data.local_vars) do
 			ImGui.TableNextRow()
@@ -368,6 +396,38 @@ function GuiRender.Present(data, width, height)
 			ImGui.EndTable()
 		end
 	end
+
+	ImGui.End()
+
+	------------------------------------------------------------------------
+	
+	ImGui.Begin("Registers")
+
+	if ImGui.BeginTable("##registers", 2) then
+		ImGui.TableNextRow()
+		ImGui.TableSetColumnIndex(0)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "name")
+		ImGui.TableSetColumnIndex(1)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "data"..spacing20..spacing20)
+
+		if data.registers then
+			for _, reg in pairs(data.registers) do
+				ImGui.TableNextRow()
+
+				-- name
+				ImGui.TableSetColumnIndex(0)
+				ImGui.Text(reg.id)
+				--ImGui.InputText("##lv_name"..i,var.name, imgui.enums.text.ReadOnly)
+
+				-- value
+				ImGui.TableSetColumnIndex(1)
+				ImGui.InputText("##reg_item"..reg.number, reg.value, imgui.enums.text.ReadOnly)
+			end
+		end
+		ImGui.EndTable()
+	end
+
+	--ImGui.TextWrapped(data.local_vars_txt)
 
 	ImGui.End()
 
