@@ -7,48 +7,68 @@ function GuiRender.Present(data, width, height)
 	local GdbData = GdbData
 
 	local ExecuteCmd = function(cmd) if SendToGdb(cmd) then return ReadFromGdb() end end
-	local PrintFrame = function(a,b) a.frame_info_txt = b; print(b) end
+	local PrintFrame = function(a,b) print(b) end
 
 	local buttons = {
 		{ id        = "Update Stack Frame", 
 		  args      = { "-stack-info-frame" },
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = false,
+		  invisible = true,
 	    },
 		{ id        = "Next",
 		  args      = { "-exec-next" },
 		  parse     = GdbData.Next, 
 		  upd_frame = true,
+		  invisible = false,
 	    },
 		{ id        = "Step Into",
 		  args      = { "-exec-step" },
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = true,
+		  invisible = false,
 	    },
 		{ id	    = "Finish",
 		  args      = { "-exec-finish" },
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = true, 
+		  invisible = false,
 	    },
 		{ id        = "Continue",
 		  args      = { "-exec-continue" },
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = true, 
+		  invisible = false,
 	    },
 		{ id        = "Locals",
 		  args      = { "-stack-list-locals", "1" },
 		  parse     = GdbData.UpdateLocals, 
 		  upd_frame = false, 
+		  invisible = true,
 	    },
 		{ id        = "Disassembly",
 		  args      = { "-data-disassemble", "-s \"$pc", "- 30\"", "-e \"$pc", "+ 30\"", "-- 0" },
 		  parse     = GdbData.UpdateAsm, 
 		  upd_frame = false, 
+		  invisible = true,
 	    },
 		{ id        = "Backtrace",
 		  args      = { "-stack-list-frames" },
 		  parse     = GdbData.UpdateBacktrace, 
 		  upd_frame = false, 
+		  invisible = true,
+	    },
+		{ id        = "Registers",
+		  args      = { "-data-list-register-names" },
+		  parse     = PrintFrame, 
+		  upd_frame = false, 
+		  invisible = false,
+	    },
+		{ id        = "Register Values",
+		  args      = { "-data-list-register-values", "r", "1", "16" },
+		  parse     = PrintFrame, 
+		  upd_frame = false, 
+		  invisible = false,
 	    },
 	}
 
@@ -140,7 +160,7 @@ function GuiRender.Present(data, width, height)
 	ImGui.Begin("Watch1")
 
 	for _, val in ipairs(buttons) do
-		if ImGui.Button(val.id) then
+		if (val.invisible == false) and ImGui.Button(val.id) then
 			val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
 
 			-- this command resets to stack trace to lowest frame
@@ -302,37 +322,46 @@ function GuiRender.Present(data, width, height)
 	ImGui.NewLine()
 
 	if #data.asm > 0 then
-		if ImGui.BeginTable("##asm", 4) then
+		-- must exist
+		local curr_pc = data.bktrace[data.curr_stack_frame].addr
+
+		if ImGui.BeginTable("##asm", 5) then
 			ImGui.TableNextRow()
-			ImGui.TableSetColumnIndex(0)
-			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "address")
 			ImGui.TableSetColumnIndex(1)
-			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "offset")
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "address")
 			ImGui.TableSetColumnIndex(2)
-			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "instruction")
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "offset")
 			ImGui.TableSetColumnIndex(3)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "instruction")
+			ImGui.TableSetColumnIndex(4)
 			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "function")
 
 			for _, asm in ipairs(data.asm) do
 				ImGui.TableNextRow()
 
+				-- location marker
+				if asm.address == curr_pc then
+					ImGui.TableSetColumnIndex(0)
+					ImGui.Text(">")
+				end
+
 				-- address
-				ImGui.TableSetColumnIndex(0)
+				ImGui.TableSetColumnIndex(1)
 				ImGui.Text(asm.address)
 
 				-- offset
 				if asm.offset then
-					ImGui.TableSetColumnIndex(1)
+					ImGui.TableSetColumnIndex(2)
 					ImGui.Text(asm.offset)
 				end
 
 				-- instruction
-				ImGui.TableSetColumnIndex(2)
+				ImGui.TableSetColumnIndex(3)
 				ImGui.Text(asm.inst)
 
 				-- function
 				if asm.func then
-					ImGui.TableSetColumnIndex(3)
+					ImGui.TableSetColumnIndex(4)
 					ImGui.Text(asm.func)
 				end
 			end
