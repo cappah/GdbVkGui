@@ -10,33 +10,51 @@ function GuiRender.Present(data, width, height)
 	local PrintFrame = function(a,b) a.frame_info_txt = b; print(b) end
 
 	local buttons = {
-		{ id    = "Update Stack Frame", 
-		  args  = { "-stack-info-frame" }, 
-		  parse = GdbData.UpdateFramePos },
-		{ id = "Next",
-		  args = { "-exec-next" },
-		  parse = GdbData.Next },
-		{ id = "Step Into",
-		  args = { "-exec-step" },
-		  parse = GdbData.UpdateFramePos },
-		{ id = "Finish",
-		  args = { "-exec-finish" },
-		  parse = GdbData.UpdateFramePos },
-		{ id = "Continue",
-		  args = { "-exec-continue" },
-		  parse = GdbData.UpdateFramePos },
-		{ id = "Locals",
-		  args = { "-stack-list-locals", "1" },
-		  parse = GdbData.UpdateLocals },
-		{ id = "Disassembly",
-		  args = { "-data-disassemble", "-s \"$pc - 30\"", "-e \"$pc + 30\"", "-- 0" },
-		  parse = GdbData.UpdateAsm },
-		{ id = "Backtrace",
-		  args = { "-stack-list-frames" },
-		  parse = PrintFrame },
+		{ id        = "Update Stack Frame", 
+		  args      = { "-stack-info-frame" },
+		  parse     = GdbData.UpdateFramePos, 
+		  upd_frame = false,
+	    },
+		{ id        = "Next",
+		  args      = { "-exec-next" },
+		  parse     = GdbData.Next, 
+		  upd_frame = true,
+	    },
+		{ id        = "Step Into",
+		  args      = { "-exec-step" },
+		  parse     = GdbData.UpdateFramePos, 
+		  upd_frame = true,
+	    },
+		{ id	    = "Finish",
+		  args      = { "-exec-finish" },
+		  parse     = GdbData.UpdateFramePos, 
+		  upd_frame = true, 
+	    },
+		{ id        = "Continue",
+		  args      = { "-exec-continue" },
+		  parse     = GdbData.UpdateFramePos, 
+		  upd_frame = true, 
+	    },
+		{ id        = "Locals",
+		  args      = { "-stack-list-locals", "1" },
+		  parse     = GdbData.UpdateLocals, 
+		  upd_frame = false, 
+	    },
+		{ id        = "Disassembly",
+		  args      = { "-data-disassemble", "-s \"$pc", "- 30\"", "-e \"$pc", "+ 30\"", "-- 0" },
+		  parse     = GdbData.UpdateAsm, 
+		  upd_frame = false, 
+	    },
+		{ id        = "Backtrace",
+		  args      = { "-stack-list-frames" },
+		  parse     = GdbData.UpdateBacktrace, 
+		  upd_frame = false, 
+	    },
 	}
 
 	local trigger_updates = false
+
+	local old_stack_frame = data.curr_stack_frame
 
 	---------------------------------------------------------------------------
 	-- Shortcut keys
@@ -119,22 +137,86 @@ function GuiRender.Present(data, width, height)
 
 	------------------------------------------------------------------------
 	
-	ImGui.Begin(string.format("%s###CodeWnd", data.open_file.short))
+	ImGui.Begin("Watch1")
 
-	if data.open_file.is_open then
-		ShowTextEditor()
+	for _, val in ipairs(buttons) do
+		if ImGui.Button(val.id) then
+			val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+
+			-- this command resets to stack trace to lowest frame
+			if val.upd_frame then data.curr_stack_frame = 1 end
+
+			trigger_updates = true
+		end
 	end
 
 	ImGui.End()
 
 	------------------------------------------------------------------------
 	
-	ImGui.Begin("Watch1")
+	ImGui.Begin("CallStack")
 
-	for _, val in ipairs(buttons) do
-		if ImGui.Button(val.id) then
-			val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
-			trigger_updates = true
+	ImGui.NewLine()
+
+	if #data.asm > 0 then
+		if ImGui.BeginTable("##bktrace", 5) then
+			ImGui.TableNextRow()
+			ImGui.TableSetColumnIndex(1)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "address")
+			ImGui.TableSetColumnIndex(2)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "function")
+			ImGui.TableSetColumnIndex(3)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "line")
+			ImGui.TableSetColumnIndex(4)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "file")
+
+			local bk_frame = {}
+			for i in ipairs(data.bktrace) do 
+				bk_frame[#bk_frame + 1] = data.curr_stack_frame == i
+			end
+
+			for i, stack_frame in ipairs(data.bktrace) do
+				ImGui.TableNextRow()
+
+				ImGui.TableSetColumnIndex(0)
+				clicked, _ = ImGui.CheckBox("##bktr_box"..i, bk_frame[i])
+				if clicked and (bk_frame[i] == false) then
+					data.curr_stack_frame = i
+				end
+
+				-- address
+				ImGui.TableSetColumnIndex(1)
+				ImGui.Text(stack_frame.addr)
+
+				-- function
+				ImGui.TableSetColumnIndex(2)
+				ImGui.Text(stack_frame.func)
+
+				-- line
+				ImGui.TableSetColumnIndex(3)
+				ImGui.Text(stack_frame.line)
+
+				-- file
+				ImGui.TableSetColumnIndex(4)
+				ImGui.Text(stack_frame.file)
+			end
+			ImGui.EndTable()
+		end
+	end
+
+	if old_stack_frame ~= data.curr_stack_frame then
+		-- change frames
+		ExecuteCmd("-stack-select-frame "..(data.curr_stack_frame - 1))
+
+		-- update relevant data views
+		for _, val in ipairs(buttons) do
+			local upd_flag = val.id == "Locals" 
+				or val.id == "Disassembly"
+				or val.id == "Update Stack Frame"
+
+			if upd_flag then
+				val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+			end
 		end
 	end
 
@@ -145,7 +227,11 @@ function GuiRender.Present(data, width, height)
 	if trigger_updates then
 		---GdbData.UpdateLocals(data, ExecuteCmd("-stack-list-locals 1"))
 		for _, val in ipairs(buttons) do
-			if val.id == "Locals" or val.id == "Disassembly" then
+			local upd_flag = val.id == "Locals" 
+				or val.id == "Disassembly" 
+				or val.id == "Backtrace"
+
+			if upd_flag then
 				val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
 			end
 		end
@@ -252,6 +338,16 @@ function GuiRender.Present(data, width, height)
 			end
 			ImGui.EndTable()
 		end
+	end
+
+	ImGui.End()
+
+	------------------------------------------------------------------------
+	
+	ImGui.Begin(string.format("%s###CodeWnd", data.open_file.short))
+
+	if data.open_file.is_open then
+		ShowTextEditor()
 	end
 
 	ImGui.End()

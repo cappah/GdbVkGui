@@ -8,7 +8,7 @@ function GdbData.UpdateFile(data, title, file, line, column, func)
 	if file == data.open_file.full and data.open_file.is_open then
 		-- set line number
 		SetEditorFileLineNum(tonumber(line), column)
-	else
+	elseif file then
 		-- open new file
 		if SetEditorFile(file, tonumber(line), column) then
 			data.open_file.short = title
@@ -71,16 +71,30 @@ function GdbData.UpdateFramePos(data, input)
 end
 
 function GdbData.UpdateAsm(data, input)
+--{address="0x0000555555648963",func-name="ImVector<ImGuiTabBar>::_grow_capacity(int) const",offset="49",inst="add    %edx,%eax"},
 	local _, _, asm_sns = input:find("asm_insns=%[(.*)%]")
 	if asm_sns then 
 		data.asm = {}
-		--print("------------------\n")
-		--print(asm_sns)
 		for match in asm_sns:gmatch("({[^{}]*})") do
 			match = match:gsub("func%-name", "func")
 			local asm_chunk = load("return "..match)
 			if asm_chunk then
 				data.asm[#data.asm + 1] = asm_chunk()
+			end
+		end
+	end
+end
+
+function GdbData.UpdateBacktrace(data, input)
+--{level="0",addr="0x000055555564932a",func="CommonStartupInit",file="src/System/main.cpp",fullname="/home/maadeagbo/Code/VulkanDemoScene/src/System/main.cpp",line="287",arch="i386:x86-64"}
+	local _, _, stack = input:find("stack=%[(.*)%]")
+	if stack then 
+		data.bktrace = {}
+		for match in stack:gmatch("frame=({[^{}]*})") do
+			--print(match)
+			local bktr_chunk = load("return "..match)
+			if bktr_chunk then
+				data.bktrace[#data.bktrace + 1] = bktr_chunk()
 			end
 		end
 	end

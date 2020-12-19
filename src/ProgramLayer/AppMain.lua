@@ -19,6 +19,9 @@ GdbApp = {
 	get_local_types = false,
 
 	asm = {},
+	bktrace = {},
+
+	curr_stack_frame = 1,
 
 	output_txt = "",
 	local_vars_txt = "",
