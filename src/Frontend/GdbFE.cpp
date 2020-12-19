@@ -135,11 +135,11 @@ static int
 LuaUpdate(void)
 {
     ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
-	ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
 
     if (EnterLuaCallback(s_app_upd.m_GlobalRef, s_app_upd.m_FuncRef)) {
         // push arguments
-		lua_State* lstate = GetLuaState();
+        lua_State* lstate = GetLuaState();
 
         lua_pushinteger(lstate, io.DisplaySize.x);
         lua_setfield(lstate, -2, "win_width");

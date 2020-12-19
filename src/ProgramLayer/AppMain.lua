@@ -7,7 +7,7 @@ GdbData   = require "GdbData"
 
 GdbApp = {
 	exe_filename = "",
-	open_file = { short = "", full = "", is_open = false },
+	open_file = { short = "", full = "", func = "", is_open = false },
 
 	force_reload = nil,
 	module_list = {
@@ -17,6 +17,8 @@ GdbApp = {
 
 	local_vars = {},
 	get_local_types = false,
+
+	asm = {},
 
 	output_txt = "",
 	local_vars_txt = "",

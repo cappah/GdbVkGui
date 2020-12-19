@@ -7,6 +7,7 @@ function GuiRender.Present(data, width, height)
 	local GdbData = GdbData
 
 	local ExecuteCmd = function(cmd) if SendToGdb(cmd) then return ReadFromGdb() end end
+	local PrintFrame = function(a,b) a.frame_info_txt = b; print(b) end
 
 	local buttons = {
 		{ id    = "Update Stack Frame", 
@@ -27,6 +28,12 @@ function GuiRender.Present(data, width, height)
 		{ id = "Locals",
 		  args = { "-stack-list-locals", "1" },
 		  parse = GdbData.UpdateLocals },
+		{ id = "Disassembly",
+		  args = { "-data-disassemble", "-s \"$pc - 30\"", "-e \"$pc + 30\"", "-- 0" },
+		  parse = GdbData.UpdateAsm },
+		{ id = "Backtrace",
+		  args = { "-stack-list-frames" },
+		  parse = PrintFrame },
 	}
 
 	local trigger_updates = false
@@ -69,8 +76,8 @@ function GuiRender.Present(data, width, height)
 			if SendToGdb("-exec-run --start") then
 				local response <const> = ReadFromGdb()
 				data.output_txt = response
-				GdbData.UpdateFramePos(data, ExecuteCmd("-stack-info-frame"))
 
+				GdbData.UpdateBreakpoint(data, ExecuteCmd("-stack-info-frame"))
 				trigger_updates = true
 			end
 		end
@@ -136,7 +143,12 @@ function GuiRender.Present(data, width, height)
 	------------------------------------------------------------------------
 	
 	if trigger_updates then
-		GdbData.UpdateLocals(data, ExecuteCmd("-stack-list-locals 1"))
+		---GdbData.UpdateLocals(data, ExecuteCmd("-stack-list-locals 1"))
+		for _, val in ipairs(buttons) do
+			if val.id == "Locals" or val.id == "Disassembly" then
+				val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+			end
+		end
 	end
 
 	------------------------------------------------------------------------
@@ -154,11 +166,96 @@ function GuiRender.Present(data, width, height)
 	
 	ImGui.Begin("Locals")
 
-	ImGui.TextWrapped(data.local_vars_txt)
-	ImGui.Separator()
+	local txt = "Retrieve type info (requires round trip thru GDB)"
+	clicked, data.get_local_types = ImGui.CheckBox(txt, data.get_local_types)
+	if clicked then
+		GdbData.GetVCard(data.local_vars)
+	end
+
+	if ImGui.BeginTable("##local_vars", 3) then
+		-- force size on columns
+		-- kinda hacky way to get what I want here
+		local spacing10 = "          "
+		ImGui.TableNextRow()
+		ImGui.TableSetColumnIndex(0)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "name")
+		ImGui.TableSetColumnIndex(1)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "type")
+		ImGui.TableSetColumnIndex(2)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "data                                                      ")
+
+		for i, var in ipairs(data.local_vars) do
+			ImGui.TableNextRow()
+
+			-- name
+			ImGui.TableSetColumnIndex(0)
+			ImGui.Text(var.name)
+			--ImGui.InputText("##lv_name"..i,var.name, imgui.enums.text.ReadOnly)
+
+			-- type
+			ImGui.TableSetColumnIndex(1)
+			ImGui.Text(var.vtype)
+			--ImGui.InputText("##lv_type"..i,var.vtype, imgui.enums.text.ReadOnly)
+
+			-- value
+			ImGui.TableSetColumnIndex(2)
+			ImGui.InputText("##lv_item"..i, var.value, imgui.enums.text.ReadOnly)
+		end
+		ImGui.EndTable()
+	end
+
+	--ImGui.TextWrapped(data.local_vars_txt)
 
 	ImGui.End()
+
+	------------------------------------------------------------------------
 	
+	ImGui.Begin("ASM")
+
+	ImGui.Text("Program Counter +- 30 bytes")
+	ImGui.NewLine()
+
+	if #data.asm > 0 then
+		if ImGui.BeginTable("##asm", 4) then
+			ImGui.TableNextRow()
+			ImGui.TableSetColumnIndex(0)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "address")
+			ImGui.TableSetColumnIndex(1)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "offset")
+			ImGui.TableSetColumnIndex(2)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "instruction")
+			ImGui.TableSetColumnIndex(3)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "function")
+
+			for _, asm in ipairs(data.asm) do
+				ImGui.TableNextRow()
+
+				-- address
+				ImGui.TableSetColumnIndex(0)
+				ImGui.Text(asm.address)
+
+				-- offset
+				if asm.offset then
+					ImGui.TableSetColumnIndex(1)
+					ImGui.Text(asm.offset)
+				end
+
+				-- instruction
+				ImGui.TableSetColumnIndex(2)
+				ImGui.Text(asm.inst)
+
+				-- function
+				if asm.func then
+					ImGui.TableSetColumnIndex(3)
+					ImGui.Text(asm.func)
+				end
+			end
+			ImGui.EndTable()
+		end
+	end
+
+	ImGui.End()
+
 	------------------------------------------------------------------------
 end
 

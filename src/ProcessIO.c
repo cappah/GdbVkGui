@@ -149,7 +149,7 @@ GdbOutput(void)
 
     int    read_bytes = 1;
     double timeout    = 0;
-    while (read_bytes && (timeout < 0.07)) {
+    while (read_bytes && (timeout < 0.05)) {
         read_bytes = read(s_gdb_to_frontend[0], buff, sizeof(buff));
 
         // gdb sends data
@@ -159,7 +159,7 @@ GdbOutput(void)
         }
         // wait on non-blocking socket to not read bad data
         else if ((read_bytes == -1) && (errno == EAGAIN)) {
-            double wait_t = 0.03;
+            double wait_t = 0.005;
             TimedWait(wait_t);
             timeout += wait_t;
         } else {

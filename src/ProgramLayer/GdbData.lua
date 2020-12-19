@@ -4,7 +4,7 @@ local Json = require "JSON"
 
 local GdbData = {}
 
-function GdbData.UpdateFile(data, title, file, line, column)
+function GdbData.UpdateFile(data, title, file, line, column, func)
 	if file == data.open_file.full and data.open_file.is_open then
 		-- set line number
 		SetEditorFileLineNum(tonumber(line), column)
@@ -18,6 +18,7 @@ function GdbData.UpdateFile(data, title, file, line, column)
 			print("Failed to open: "..file)
 		end
 	end
+	data.open_file.func = func
 end
 
 function GdbData.Next(data, input)
@@ -28,9 +29,25 @@ function GdbData.Next(data, input)
 			local _, _, short = reply:find("file=\"([%w%s_/%.]*)\"")
 			local _, _, full = reply:find("fullname=\"([%w%s_/%.]*)\"")
 			local _, _, line = reply:find("line=\"(%d*)\"")
+			local _, _, func = reply:find("func=\"([%w%s_]*)\"")
 			--print(string.format("Frame : %s, %s, %d", short, full, line))
 
-			GdbData.UpdateFile(data, short, full, line, 0)
+			GdbData.UpdateFile(data, short, full, line, 0, func)
+		end
+	end
+end
+
+function GdbData.UpdateBreakpoint(data, input)
+	if type(input) == "string" then
+		local _, _, bkpt = input:find("bkpt=(.*)")
+		if bkpt then 
+			local _, _, short = bkpt:find("file=\"([%w%s_/%.]*)\"")
+			local _, _, full = bkpt:find("fullname=\"([%w%s_/%.,]*)\"")
+			local _, _, line = bkpt:find("line=\"(%d*)\"")
+			local _, _, func = bkpt:find("func=\"([%w%s_]*)\"")
+			if short and full and line then
+				GdbData.UpdateFile(data, short, full, line, 0, func)
+			end
 		end
 	end
 end
@@ -44,10 +61,37 @@ function GdbData.UpdateFramePos(data, input)
 			local _, _, short = frame:find("file=\"([%w%s_/%.]*)\"")
 			local _, _, full = frame:find("fullname=\"([%w%s_/%.,]*)\"")
 			local _, _, line = frame:find("line=\"(%d*)\"")
+			local _, _, func = frame:find("func=\"([%w%s_]*)\"")
 			--print(string.format("Frame : %s, %s, %s", short, full, tostring(line)))
 			if short and full and line then
-				GdbData.UpdateFile(data, short, full, line, 0)
+				GdbData.UpdateFile(data, short, full, line, 0, func)
 			end
+		end
+	end
+end
+
+function GdbData.UpdateAsm(data, input)
+	local _, _, asm_sns = input:find("asm_insns=%[(.*)%]")
+	if asm_sns then 
+		data.asm = {}
+		--print("------------------\n")
+		--print(asm_sns)
+		for match in asm_sns:gmatch("({[^{}]*})") do
+			match = match:gsub("func%-name", "func")
+			local asm_chunk = load("return "..match)
+			if asm_chunk then
+				data.asm[#data.asm + 1] = asm_chunk()
+			end
+		end
+	end
+end
+
+function GdbData.GetVCard(local_vars)
+	for _, var in ipairs(local_vars) do
+		if SendToGdb("whatis "..var.name) then
+			local t = ReadFromGdb()
+			local _, _, vtype = t:find("type = ([^\\]*)\\")
+			var.vtype = vtype
 		end
 	end
 end
@@ -62,19 +106,18 @@ function GdbData.UpdateLocals(data, input)
 		new_data = Json:decode(new_data)
 		data.local_vars = new_data.locals
 
-		data.local_vars_txt = Json:encode_pretty(new_data)
-
-		if data.get_local_types == false then return end
-
-		-- get type of each top level variable
 		for _, var in ipairs(new_data.locals) do
-			print("Var name : "..var.name)
-			if SendToGdb("whatis "..var.name) then
-				local t = ReadFromGdb()
-				local _, _, vtype = t:find("type = ([%w%s_%*]*)\\")
-				var.vtype = vtype
+			if var.value:find("^{") then
+				-- sanitize long junk strings
+				var.value = var.value:gsub("\", [\\'%d]* <[%w%s]*>, \"", "")
+				--var.value = var.value:gsub("(\"[\\%w]*\")..., ", "%1, ")
 			end
+			var.vtype = ""
 		end
+
+		--data.local_vars_txt = Json:encode_pretty(new_data.locals)
+
+		if data.get_local_types then GdbData.GetVCard(data.local_vars) end
 	end
 end
 

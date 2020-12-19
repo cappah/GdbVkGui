@@ -107,6 +107,16 @@ EndCombo(lua_State* L);
 static int
 Selectable(lua_State* L);
 
+// Tables
+static int
+BeginTable(lua_State* L);
+static int
+EndTable(lua_State* L);
+static int
+TableNextRow(lua_State* L);
+static int
+TableSetColumnIndex(lua_State* L);
+
 // Float functions
 
 struct InputHelper
@@ -279,6 +289,10 @@ static const struct luaL_Reg s_imgui_lib[] = {
     { "BeginCombo", BeginCombo },
     { "EndCombo", EndCombo },
     { "Selectable", Selectable },
+    { "BeginTable", BeginTable },
+    { "EndTable", EndTable },
+    { "TableNextRow", TableNextRow },
+    { "TableSetColumnIndex", TableSetColumnIndex },
     { "DragFloat", DFloat },
     { "DragFloat2", DFloat2 },
     { "DragFloat3", DFloat3 },
@@ -413,6 +427,8 @@ luaopen_ImguiLib(lua_State* L)
 
     lua_pushinteger(L, ImGuiInputTextFlags_EnterReturnsTrue);
     lua_setfield(L, -2, "EnterReturnsTrue");
+    lua_pushinteger(L, ImGuiInputTextFlags_ReadOnly);
+    lua_setfield(L, -2, "ReadOnly");
 
     // Enums table : text constants finish
     lua_setfield(L, -2, "text");
@@ -1175,6 +1191,73 @@ Selectable(lua_State* L)
         assert(false && "Invalid arguments");
     }
     return 1;
+}
+
+//-----------------------------------------------------------------------------
+
+static int
+BeginTable(lua_State* L)
+{
+    int top = lua_gettop(L);
+    if (top >= 1) {
+        int         curr_idx = 1;
+        const char* label    = luaL_checklstring(L, curr_idx, nullptr);
+        curr_idx++;
+
+        int clmn_cnt = luaL_checkinteger(L, curr_idx);
+        curr_idx++;
+
+        // TODO : maybe add ImGuiTableFlags support
+
+        lua_pushboolean(L,
+                        ImGui::BeginTable(label,
+                                          clmn_cnt,
+                                          ImGuiTableFlags_ColumnsWidthFixed |
+                                            ImGuiTableFlags_Borders));
+    } else {
+        assert(false && "Invalid arguments");
+    }
+    return 1;
+}
+
+static int
+EndTable(lua_State* L)
+{
+    UNUSED_VAR(L);
+
+    ImGui::EndTable();
+
+    return 0;
+}
+
+static int
+TableNextRow(lua_State* L)
+{
+    UNUSED_VAR(L);
+
+    // TODO : maybe add ImGuiTableRowFlags support
+
+    ImGui::TableNextRow();
+
+    return 0;
+}
+
+static int
+TableSetColumnIndex(lua_State* L)
+{
+    int top = lua_gettop(L);
+    if (top == 1) {
+        int curr_idx = 1;
+        int column   = luaL_checkinteger(L, curr_idx);
+        curr_idx++;
+
+        // TODO : maybe add ImGuiTableColumnFlags support
+
+        ImGui::TableSetColumnIndex(column);
+    } else {
+        assert(false && "Invalid arguments");
+    }
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
