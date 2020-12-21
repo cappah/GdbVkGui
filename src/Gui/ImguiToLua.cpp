@@ -1207,13 +1207,20 @@ BeginTable(lua_State* L)
         int clmn_cnt = luaL_checkinteger(L, curr_idx);
         curr_idx++;
 
+        Vec4 sz = { 0 };
+        ReadFBufferFromLua(sz.raw, 2, curr_idx);
+        curr_idx++;
+
         // TODO : maybe add ImGuiTableFlags support
 
         lua_pushboolean(L,
                         ImGui::BeginTable(label,
                                           clmn_cnt,
                                           ImGuiTableFlags_ColumnsWidthFixed |
-                                            ImGuiTableFlags_Borders));
+                                            ImGuiTableFlags_ScrollX |
+                                            ImGuiTableFlags_ScrollY |
+                                            ImGuiTableFlags_Borders,
+                                          ImVec2(sz)));
     } else {
         assert(false && "Invalid arguments");
     }

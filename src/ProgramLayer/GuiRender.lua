@@ -51,7 +51,7 @@ function GuiRender.Present(data, width, height)
 		  auto_upd  = false,
 	    },
 		{ id        = "Locals",
-		  args      = { "-stack-list-locals", "1" },
+		  args      = { "-stack-list-locals 1" },
 		  parse     = GdbData.UpdateLocals, 
 		  upd_frame = false, 
 		  invisible = true,
@@ -59,12 +59,13 @@ function GuiRender.Present(data, width, height)
 		  auto_upd  = true,
 	    },
 		{ id        = "Disassembly",
-		  args      = { "-data-disassemble", "-s \"$pc -", "30\"", "-e \"$pc + ", "30\"", "-- 0" },
+		  args      = { "-data-disassemble -s \"$pc - ", "@before", "\" -e \"$pc + ", "@after", "\" -- 0" },
 		  parse     = GdbData.UpdateAsm, 
 		  upd_frame = false, 
 		  invisible = true,
-		  mod_args  = nil,
+		  mod_args  = GdbData.ParseDataInput,
 		  auto_upd  = true,
+		  defaults  = { 30, 30 }
 	    },
 		{ id        = "Backtrace",
 		  args      = { "-stack-list-frames" },
@@ -83,18 +84,47 @@ function GuiRender.Present(data, width, height)
 		  auto_upd  = false,
 	    },
 		{ id        = "Register Values",
-		  args      = { "-data-list-register-values", "r", "1" },
+		  args      = { "-data-list-register-values r 1" },
 		  parse     = GdbData.UpdateRegisters, 
 		  upd_frame = true, 
 		  invisible = true,
 		  mod_args  = GdbData.SetupRegisterDataCmd,
 		  auto_upd  = true,
 	    },
+		{ id        = "Memory",
+		  args      = { "-data-read-memory-bytes", " @address", " @bytes" },
+		  parse     = GdbData.UpdateMemory, 
+		  upd_frame = false, 
+		  invisible = true,
+		  mod_args  = GdbData.ParseDataInput,
+		  auto_upd  = false,
+		  defaults  = { "&main", 100 }
+	    },
 	}
 
 	local trigger_updates = false
 
 	local old_stack_frame = data.curr_stack_frame
+
+	if #data.user_args == 0 then
+		-- start tracking
+		for _, cmd in ipairs(buttons) do
+			if data.user_args[cmd.id] == nil then
+				data.user_args[cmd.id] = {}
+
+				local d_idx = 1
+				for _, val in ipairs(cmd.args) do
+					if val:find("@") then 
+						data.user_args[cmd.id][#data.user_args[cmd.id] + 1] = {
+							id = val:gsub("@", ""),
+							val = cmd.defaults and tostring(cmd.defaults[d_idx]) or ""
+						}
+						d_idx = d_idx + 1
+					end
+				end
+			end
+		end
+	end
 
 	---------------------------------------------------------------------------
 	-- Shortcut keys
@@ -184,15 +214,24 @@ function GuiRender.Present(data, width, height)
 	for _, val in ipairs(buttons) do
 		if (val.invisible == false) and ImGui.Button(val.id) then
 			if val.mod_args then
-				val.parse(data, ExecuteCmd(table.concat(val.mod_args(data), " ")))
+				val.parse(data, ExecuteCmd(table.concat(val.mod_args(data, val), "")))
 			else
-				val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+				val.parse(data, ExecuteCmd(table.concat(val.args, "")))
 			end
 
 			-- this command resets to stack trace to lowest frame
 			if val.upd_frame then data.curr_stack_frame = 1 end
 
 			trigger_updates = true
+		end
+		-- user input
+		if (val.invisible == false) and data.user_args[val.id] then
+			for user_i, user_v in ipairs(data.user_args[val.id]) do
+				ImGui.Text(" - "); ImGui.SameLine()
+
+				_, user_v.val = ImGui.InputTextWithHint(
+					"##"..val.id..user_i, user_v.id, user_v.val)
+			end
 		end
 	end
 
@@ -204,8 +243,10 @@ function GuiRender.Present(data, width, height)
 
 	ImGui.NewLine()
 
+	local tbl_width = ImGui.GetWindowSize()
+	tbl_width[2] = tbl_width[2] - 60
 	if #data.asm > 0 then
-		if ImGui.BeginTable("##bktrace", 5) then
+		if ImGui.BeginTable("##bktrace", 5, tbl_width) then
 			ImGui.TableNextRow()
 			ImGui.TableSetColumnIndex(1)
 			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "address")
@@ -262,7 +303,11 @@ function GuiRender.Present(data, width, height)
 				or val.id == "Register Values"
 
 			if upd_flag then
-				val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+				if val.mod_args then
+					val.parse(data, ExecuteCmd(table.concat(val.mod_args(data, val), "")))
+				else
+					val.parse(data, ExecuteCmd(table.concat(val.args, "")))
+				end
 			end
 		end
 	end
@@ -272,13 +317,12 @@ function GuiRender.Present(data, width, height)
 	------------------------------------------------------------------------
 	
 	if trigger_updates then
-		---GdbData.UpdateLocals(data, ExecuteCmd("-stack-list-locals 1"))
 		for _, val in ipairs(buttons) do
 			if val.auto_upd then
 				if val.mod_args then
-					val.parse(data, ExecuteCmd(table.concat(val.mod_args(data), " ")))
+					val.parse(data, ExecuteCmd(table.concat(val.mod_args(data, val), "")))
 				else
-					val.parse(data, ExecuteCmd(table.concat(val.args, " ")))
+					val.parse(data, ExecuteCmd(table.concat(val.args, "")))
 				end
 			end
 		end
@@ -309,7 +353,9 @@ function GuiRender.Present(data, width, height)
 		GdbData.GetVCard(data.local_vars)
 	end
 
-	if ImGui.BeginTable("##local_vars", 3) then
+	tbl_width = ImGui.GetWindowSize()
+	tbl_width[2] = tbl_width[2] - 60
+	if ImGui.BeginTable("##local_vars", 3, tbl_width) then
 		ImGui.TableNextRow()
 		ImGui.TableSetColumnIndex(0)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "name")
@@ -346,14 +392,30 @@ function GuiRender.Present(data, width, height)
 	
 	ImGui.Begin("ASM")
 
-	ImGui.Text("Program Counter +- 30 bytes")
-	ImGui.NewLine()
-
 	if #data.asm > 0 then
 		-- must exist
 		local curr_pc = data.bktrace[data.curr_stack_frame].addr
 
-		if ImGui.BeginTable("##asm", 5) then
+		tbl_width = ImGui.GetWindowSize()
+		tbl_width[2] = tbl_width[2] - 30
+		if ImGui.BeginTable("##asm", 5, tbl_width) then
+
+			for _, val in ipairs(buttons) do
+				if val.id == "Disassembly" then
+					for i, user_v in ipairs(data.user_args[val.id]) do
+						ImGui.TableNextRow()
+
+						ImGui.TableSetColumnIndex(1)
+						ImGui.Text(" - bytes "..user_v.id..": ")
+						ImGui.TableSetColumnIndex(2)
+						_, user_v.val = ImGui.InputText("##"..val.id..i, user_v.val)
+						ImGui.TableSetColumnIndex(3)
+						ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "offset $PC")
+					end
+					break
+				end
+			end
+
 			ImGui.TableNextRow()
 			ImGui.TableSetColumnIndex(1)
 			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "address")
@@ -403,7 +465,8 @@ function GuiRender.Present(data, width, height)
 	
 	ImGui.Begin("Registers")
 
-	if ImGui.BeginTable("##registers", 2) then
+	tbl_width = ImGui.GetWindowSize()
+	if ImGui.BeginTable("##registers", 2, tbl_width) then
 		ImGui.TableNextRow()
 		ImGui.TableSetColumnIndex(0)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "name")
@@ -428,6 +491,114 @@ function GuiRender.Present(data, width, height)
 	end
 
 	--ImGui.TextWrapped(data.local_vars_txt)
+
+	ImGui.End()
+
+	------------------------------------------------------------------------
+	
+	ImGui.Begin("Memory")
+
+	-- if settings donot exist, create default
+	if data.user_args and (data.user_args.MemView == nil) then
+		data.user_args.MemView = { active = false, bPerColumn = 2, nColumns = 5 }
+	end
+	local mem_settings = data.user_args.MemView
+
+	-- Memory view setting UI
+	local mem_cmd = nil
+	for _, val in ipairs(buttons) do
+		if val.id == "Memory" then
+			mem_cmd = val
+
+			clicked, mem_settings.active = ImGui.CheckBox("Track", mem_settings.active)
+			if mem_settings.active then
+				val.parse(data, ExecuteCmd(table.concat(val.mod_args(data, val), "")))
+			end
+
+			ImGui.SameLine()
+
+			-- TODO : Maybe fix imgui functions so that I don't need to keep transforming
+			-- ReadFBufferFromLua is greedy and is currently hardcoded to 4
+
+			local v4 = { mem_settings.bPerColumn, mem_settings.nColumns }
+			_, v4 = ImGui.SliderFloat2("hex digits, columns", v4, 1.0, 20.0, "%g")
+			mem_settings.bPerColumn = math.floor(v4[1])
+			mem_settings.nColumns = math.floor(v4[2])
+		end
+	end
+
+	tbl_width = ImGui.GetWindowSize()
+	tbl_width[2] = tbl_width[2] - 60 -- shrink in y-axis
+	if mem_cmd and ImGui.BeginTable("##memory", mem_settings.nColumns + 2, tbl_width) then
+		-- Each memory unit in gdb is 8 bits
+		-- bPerColumn are the # of hex values per column
+		-- Each hex value represents up to 16 bits (i.e. 2 bytes)
+		-- so request size per column is (bPerColumn * 8 * 2)
+		local mem_unit = mem_settings.bPerColumn * 8 * 2
+
+		for i, user_v in ipairs(data.user_args[mem_cmd.id]) do
+			ImGui.TableNextRow()
+
+			ImGui.TableSetColumnIndex(1)
+			_, user_v.val = ImGui.InputTextWithHint(
+				"##"..mem_cmd.id..i, user_v.id, user_v.val)
+		end
+
+		ImGui.TableNextRow()
+		ImGui.TableSetColumnIndex(1)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "address          ")
+		for i = 1, mem_settings.nColumns, 1 do
+			ImGui.TableSetColumnIndex(i + 1)
+			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, " "..(i - 1).." ")
+		end
+
+		if data.memory.contents then
+			--ImGui.TableSetColumnIndex(1)
+			--ImGui.Text(string.format("%#018x", data.memory.begin))
+			local total_digits = data.memory.contents:len()
+			local max_rows = math.ceil(
+				total_digits / (mem_settings.bPerColumn * mem_settings.nColumns))
+
+			data.frame_info_txt = (data.memory.contents)
+			--print(total_digits)
+			--print(max_rows)
+
+			local h_cntr = 1
+
+			for irow = 1, max_rows, 1 do
+				ImGui.TableNextRow()
+				ImGui.TableSetColumnIndex(0)
+				ImGui.TextColored({ 1.0, 1, 1, 0.5 }, irow - 1)
+
+				if irow == 1 then
+					ImGui.TableSetColumnIndex(1)
+					ImGui.Text(data.memory.begin)
+				end
+
+				-- write backwards because of big endian formatting
+				for iclmn = mem_settings.nColumns, 1, -1 do
+					ImGui.TableSetColumnIndex(iclmn + 1)
+
+					local out_hex = { "0x" }
+					for ihex = mem_settings.bPerColumn, 1, -1 do
+						if total_digits >= h_cntr then
+							out_hex[ihex + 1] = tostring(
+								data.memory.contents:sub(h_cntr, h_cntr))
+						else
+							out_hex[ihex + 1] = "0"
+						end
+
+						h_cntr = h_cntr + 1
+					end
+					ImGui.Text(table.concat(out_hex))
+				end
+			end
+			ImGui.TableNextRow()
+			ImGui.TableSetColumnIndex(1)
+			ImGui.Text(data.memory.last)
+		end
+		ImGui.EndTable()
+	end
 
 	ImGui.End()
 

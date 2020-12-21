@@ -315,5 +315,5 @@ ReadFBufferFromLua(float fbuff[], int fbuff_sz, int index)
             }
         }
     }
-    lua_pop(s_lstate, top); // Pop table
+    // lua_pop(s_lstate, top); // Pop table
 }

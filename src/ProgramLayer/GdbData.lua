@@ -70,8 +70,23 @@ function GdbData.UpdateFramePos(data, input)
 	end
 end
 
+function GdbData.UpdateMemory(data, input)
+-- memory=[{begin="0x0000555555648981",offset="0x0000000000000000",end="0x000055555564898b",contents="f30f1efa554889e55348"}]
+
+	local _, _, mem = input:find("memory=%[(.*)%]")
+	if mem then 
+		mem = mem:gsub("end", "last")
+		data.memory = {}
+		local mem_chunk = load("return "..mem)
+		if mem_chunk then
+			data.memory = mem_chunk()
+		end
+	end
+end
+
 function GdbData.UpdateAsm(data, input)
 --{address="0x0000555555648963",func-name="ImVector<ImGuiTabBar>::_grow_capacity(int) const",offset="49",inst="add    %edx,%eax"},
+
 	local _, _, asm_sns = input:find("asm_insns=%[(.*)%]")
 	if asm_sns then 
 		data.asm = {}
@@ -123,11 +138,13 @@ function GdbData.GetTrackedRegisters(data)
 	}
 end
 
-function GdbData.SetupRegisterDataCmd(data)
-	local cmd = { "-data-list-register-values", "r", }
+function GdbData.SetupRegisterDataCmd(data, cmd_data)
+	local cmd = { "-data-list-register-values r", }
 
-	for name, val in pairs(data.registers) do
-		if val.number >= 0 then cmd[#cmd + 1] = tostring(val.number) end
+	if data.registers then
+		for name, val in pairs(data.registers) do
+			if val.number >= 0 then cmd[#cmd + 1] = " "..tostring(val.number) end
+		end
 	end
 
 	return cmd
@@ -201,6 +218,22 @@ function GdbData.UpdateLocals(data, input)
 
 		if data.get_local_types then GdbData.GetVCard(data.local_vars) end
 	end
+end
+
+function GdbData.ParseDataInput(data, cmd_data)
+	local complete_cmd = {}
+
+	local user_idx = 1
+	for i, val in ipairs(cmd_data.args) do
+		complete_cmd[i] = val
+
+		if val:find("@") then 
+			complete_cmd[i] = val:gsub("@%w*", data.user_args[cmd_data.id][user_idx].val)
+			user_idx = user_idx + 1
+		end
+	end
+
+	return complete_cmd
 end
 
 return GdbData

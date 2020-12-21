@@ -16,14 +16,15 @@ GdbApp = {
 	},
 
 	local_vars = {},
-	get_local_types = false,
-
 	asm = {},
 	bktrace = {},
-
 	registers = nil,
+	memory = {},
 
 	curr_stack_frame = 1,
+	get_local_types = false,
+
+	user_args = {},
 
 	output_txt = "",
 	local_vars_txt = "",
