@@ -1,4 +1,5 @@
 #include "ProcessIO.h"
+#include "UtilityMacros.h"
 #include "tlsf.h"
 #include <assert.h>
 #include <errno.h>
@@ -48,6 +49,15 @@ TimedWait(double secs)
     while ((start_time + secs) > NanoToSec(GetHighResTime())) {
         struct timespec slp_period = { .tv_nsec = SecToNano(secs * 0.1) };
         nanosleep(&slp_period, NULL);
+    }
+}
+
+void
+BusyWait(double secs)
+{
+    double start_time = NanoToSec(GetHighResTime());
+
+    while ((start_time + secs) > NanoToSec(GetHighResTime())) {
     }
 }
 
@@ -133,7 +143,9 @@ SendCommand(const char* fmt, ...)
         return false;
     }
 
-    write(s_frontend_to_gdb[1], s_cmd_buff, written);
+    // TODO : if the command didn't get sent, maybe retry ?
+    int wout = write(s_frontend_to_gdb[1], s_cmd_buff, written);
+    UNUSED_VAR(wout);
 
     return true;
 }
@@ -149,7 +161,7 @@ GdbOutput(void)
 
     int    read_bytes = 1;
     double timeout    = 0;
-    while (read_bytes && (timeout < 0.05)) {
+    while (read_bytes && (timeout < 5)) { //(timeout < 0.03)) {
         read_bytes = read(s_gdb_to_frontend[0], buff, sizeof(buff));
 
         // gdb sends data
@@ -160,8 +172,9 @@ GdbOutput(void)
         // wait on non-blocking socket to not read bad data
         else if ((read_bytes == -1) && (errno == EAGAIN)) {
             double wait_t = 0.005;
-            TimedWait(wait_t);
-            timeout += wait_t;
+            BusyWait(wait_t);
+            // timeout += wait_t;
+            timeout++;
         } else {
             break;
         }

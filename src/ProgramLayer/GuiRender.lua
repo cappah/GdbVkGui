@@ -100,6 +100,14 @@ function GuiRender.Present(data, width, height)
 		  auto_upd  = false,
 		  defaults  = { "&main", 100 }
 	    },
+		{ id        = "Watch",
+		  args      = { "-data-evaluate-expression", " @expression" },
+		  parse     = PrintFrame, 
+		  upd_frame = false, 
+		  invisible = false,
+		  mod_args  = GdbData.ParseDataInput,
+		  auto_upd  = false,
+	    },
 	}
 
 	local trigger_updates = false
@@ -124,6 +132,11 @@ function GuiRender.Present(data, width, height)
 				end
 			end
 		end
+	end
+
+	-- if watch args does not exist, create default
+	if data.user_args and (data.user_args.WatchExpr == nil) then
+		data.user_args.WatchExpr = { { expr = "", value = "" } }
 	end
 
 	---------------------------------------------------------------------------
@@ -166,8 +179,7 @@ function GuiRender.Present(data, width, height)
 				data.output_txt = response
 
 				GdbData.UpdateBreakpoint(data, ExecuteCmd("-stack-info-frame"))
-				ReadFromGdb()
-				GdbData.SetTrackedRegisters(data, ExecuteCmd("-data-list-register-names"))
+
 				trigger_updates = true
 			end
 		end
@@ -243,10 +255,10 @@ function GuiRender.Present(data, width, height)
 
 	ImGui.NewLine()
 
-	local tbl_width = ImGui.GetWindowSize()
-	tbl_width[2] = tbl_width[2] - 60
+	local tbl_sz = ImGui.GetWindowSize()
+	tbl_sz[2] = tbl_sz[2] - 60
 	if #data.asm > 0 then
-		if ImGui.BeginTable("##bktrace", 5, tbl_width) then
+		if ImGui.BeginTable("##bktrace", 5, tbl_sz) then
 			ImGui.TableNextRow()
 			ImGui.TableSetColumnIndex(1)
 			ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "address")
@@ -326,11 +338,20 @@ function GuiRender.Present(data, width, height)
 				end
 			end
 		end
+
+		-- watch window
+		for i, watch_data in ipairs(data.user_args.WatchExpr) do
+			if watch_data.expr ~= "" then
+				local val = GdbData.UpdateWatchExpr(
+					data, ExecuteCmd("-data-evaluate-expression "..watch_data.expr))
+				watch_data.value = val == "" and watch_data.value or val
+			end
+		end
 	end
 
 	------------------------------------------------------------------------
 
-	ImGui.Begin("Watch2")
+	ImGui.Begin("Ouput")
 
 	ImGui.TextWrapped(data.output_txt)
 	ImGui.Separator()
@@ -353,9 +374,9 @@ function GuiRender.Present(data, width, height)
 		GdbData.GetVCard(data.local_vars)
 	end
 
-	tbl_width = ImGui.GetWindowSize()
-	tbl_width[2] = tbl_width[2] - 60
-	if ImGui.BeginTable("##local_vars", 3, tbl_width) then
+	tbl_sz = ImGui.GetWindowSize()
+	tbl_sz[2] = tbl_sz[2] - 60
+	if ImGui.BeginTable("##local_vars", 3, tbl_sz) then
 		ImGui.TableNextRow()
 		ImGui.TableSetColumnIndex(0)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "name")
@@ -370,16 +391,16 @@ function GuiRender.Present(data, width, height)
 			-- name
 			ImGui.TableSetColumnIndex(0)
 			ImGui.Text(var.name)
-			--ImGui.InputText("##lv_name"..i,var.name, imgui.enums.text.ReadOnly)
 
 			-- type
 			ImGui.TableSetColumnIndex(1)
 			ImGui.Text(var.vtype)
-			--ImGui.InputText("##lv_type"..i,var.vtype, imgui.enums.text.ReadOnly)
 
 			-- value
 			ImGui.TableSetColumnIndex(2)
+			ImGui.PushItemWidth(-1)
 			ImGui.InputText("##lv_item"..i, var.value, imgui.enums.text.ReadOnly)
+			ImGui.PopItemWidth()
 		end
 		ImGui.EndTable()
 	end
@@ -396,9 +417,9 @@ function GuiRender.Present(data, width, height)
 		-- must exist
 		local curr_pc = data.bktrace[data.curr_stack_frame].addr
 
-		tbl_width = ImGui.GetWindowSize()
-		tbl_width[2] = tbl_width[2] - 30
-		if ImGui.BeginTable("##asm", 5, tbl_width) then
+		tbl_sz = ImGui.GetWindowSize()
+		tbl_sz[2] = tbl_sz[2] - 30
+		if ImGui.BeginTable("##asm", 5, tbl_sz) then
 
 			for _, val in ipairs(buttons) do
 				if val.id == "Disassembly" then
@@ -408,7 +429,11 @@ function GuiRender.Present(data, width, height)
 						ImGui.TableSetColumnIndex(1)
 						ImGui.Text(" - bytes "..user_v.id..": ")
 						ImGui.TableSetColumnIndex(2)
+
+						ImGui.PushItemWidth(-1)
 						_, user_v.val = ImGui.InputText("##"..val.id..i, user_v.val)
+						ImGui.PopItemWidth()
+
 						ImGui.TableSetColumnIndex(3)
 						ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "offset $PC")
 					end
@@ -465,8 +490,12 @@ function GuiRender.Present(data, width, height)
 	
 	ImGui.Begin("Registers")
 
-	tbl_width = ImGui.GetWindowSize()
-	if ImGui.BeginTable("##registers", 2, tbl_width) then
+	if ImGui.Button("Populate") then
+		GdbData.SetTrackedRegisters(data, ExecuteCmd("-data-list-register-names"))
+	end
+
+	tbl_sz = ImGui.GetWindowSize()
+	if ImGui.BeginTable("##registers", 2, tbl_sz) then
 		ImGui.TableNextRow()
 		ImGui.TableSetColumnIndex(0)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "name")
@@ -480,17 +509,71 @@ function GuiRender.Present(data, width, height)
 				-- name
 				ImGui.TableSetColumnIndex(0)
 				ImGui.Text(reg.id)
-				--ImGui.InputText("##lv_name"..i,var.name, imgui.enums.text.ReadOnly)
 
 				-- value
 				ImGui.TableSetColumnIndex(1)
+				ImGui.PushItemWidth(-1)
 				ImGui.InputText("##reg_item"..reg.number, reg.value, imgui.enums.text.ReadOnly)
+				ImGui.PopItemWidth()
 			end
 		end
 		ImGui.EndTable()
 	end
 
-	--ImGui.TextWrapped(data.local_vars_txt)
+	ImGui.End()
+
+	------------------------------------------------------------------------
+	
+	ImGui.Begin("Watch")
+	
+
+	if ImGui.Button("Add watch expression") then
+		data.user_args.WatchExpr[#data.user_args.WatchExpr + 1] = { expr = "", value = "" }
+	end
+
+	-- get longest expression
+	local longest_expr = 15
+	for i, watch_data in ipairs(data.user_args.WatchExpr) do
+		local e_len = watch_data.expr:len()
+		longest_expr = e_len > longest_expr and e_len or longest_expr
+	end
+	local expr_space = {}
+	for i = 1, longest_expr, 1 do expr_space[#expr_space + 1] = " " end
+
+	tbl_sz = ImGui.GetWindowSize()
+	tbl_sz[2] = tbl_sz[2] - 60 -- shrink in y-axis
+	if ImGui.BeginTable("##watch", 2, tbl_sz) then
+		ImGui.TableNextRow()
+		ImGui.TableSetColumnIndex(0)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "expr      "..table.concat(expr_space))
+		ImGui.TableSetColumnIndex(1)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, string.format("data%s%s%s", spacing20, spacing20, spacing20))
+
+		for i, watch_data in ipairs(data.user_args.WatchExpr) do
+			ImGui.TableNextRow()
+
+			ImGui.TableSetColumnIndex(0)
+			local in_expr = watch_data.expr
+
+			ImGui.PushItemWidth(-1)
+			clicked, in_expr = ImGui.InputText("##watche"..i, in_expr, imgui.enums.text.EnterReturnsTrue)
+			ImGui.PopItemWidth()
+			if clicked then
+				-- update specific watch value
+				watch_data.expr = in_expr
+				local val = GdbData.UpdateWatchExpr(
+					data, ExecuteCmd("-data-evaluate-expression "..watch_data.expr))
+				watch_data.value = val == "" and watch_data.value or val
+			end
+
+			ImGui.TableSetColumnIndex(1)
+			ImGui.PushItemWidth(-1)
+			ImGui.InputText("##watchv"..i, watch_data.value, imgui.enums.text.ReadOnly)
+			ImGui.PopItemWidth()
+		end
+
+		ImGui.EndTable()
+	end
 
 	ImGui.End()
 
@@ -498,7 +581,7 @@ function GuiRender.Present(data, width, height)
 	
 	ImGui.Begin("Memory")
 
-	-- if settings donot exist, create default
+	-- if settings does not exist, create default
 	if data.user_args and (data.user_args.MemView == nil) then
 		data.user_args.MemView = { active = false, bPerColumn = 2, nColumns = 5 }
 	end
@@ -521,15 +604,20 @@ function GuiRender.Present(data, width, height)
 			-- ReadFBufferFromLua is greedy and is currently hardcoded to 4
 
 			local v4 = { mem_settings.bPerColumn, mem_settings.nColumns }
-			_, v4 = ImGui.SliderFloat2("hex digits, columns", v4, 1.0, 20.0, "%g")
+
+			ImGui.PushItemWidth(-1)
+			_, v4 = ImGui.SliderFloat2("##mem_input", v4, 1.0, 20.0, "%g")
+			ImGui.PopItemWidth()
+
 			mem_settings.bPerColumn = math.floor(v4[1])
 			mem_settings.nColumns = math.floor(v4[2])
 		end
 	end
 
-	tbl_width = ImGui.GetWindowSize()
-	tbl_width[2] = tbl_width[2] - 60 -- shrink in y-axis
-	if mem_cmd and ImGui.BeginTable("##memory", mem_settings.nColumns + 2, tbl_width) then
+	tbl_sz = ImGui.GetWindowSize()
+	tbl_sz[1] = tbl_sz[1] - 3 -- shrink in x-axis
+	tbl_sz[2] = tbl_sz[2] - 60 -- shrink in y-axis
+	if mem_cmd and ImGui.BeginTable("##memory", mem_settings.nColumns + 2, tbl_sz) then
 		-- Each memory unit in gdb is 8 bits
 		-- bPerColumn are the # of hex values per column
 		-- Each hex value represents up to 16 bits (i.e. 2 bytes)
@@ -540,8 +628,10 @@ function GuiRender.Present(data, width, height)
 			ImGui.TableNextRow()
 
 			ImGui.TableSetColumnIndex(1)
+			ImGui.PushItemWidth(-1)
 			_, user_v.val = ImGui.InputTextWithHint(
 				"##"..mem_cmd.id..i, user_v.id, user_v.val)
+			ImGui.PopItemWidth()
 		end
 
 		ImGui.TableNextRow()
@@ -553,18 +643,11 @@ function GuiRender.Present(data, width, height)
 		end
 
 		if data.memory.contents then
-			--ImGui.TableSetColumnIndex(1)
-			--ImGui.Text(string.format("%#018x", data.memory.begin))
 			local total_digits = data.memory.contents:len()
 			local max_rows = math.ceil(
 				total_digits / (mem_settings.bPerColumn * mem_settings.nColumns))
 
-			data.frame_info_txt = (data.memory.contents)
-			--print(total_digits)
-			--print(max_rows)
-
 			local h_cntr = 1
-
 			for irow = 1, max_rows, 1 do
 				ImGui.TableNextRow()
 				ImGui.TableSetColumnIndex(0)

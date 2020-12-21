@@ -4,6 +4,8 @@ local Json = require "JSON"
 
 local GdbData = {}
 
+-- TODO : Create parser function to load() that appends '_' to lua lang keywords
+
 function GdbData.UpdateFile(data, title, file, line, column, func)
 	if file == data.open_file.full and data.open_file.is_open then
 		-- set line number
@@ -68,6 +70,13 @@ function GdbData.UpdateFramePos(data, input)
 			end
 		end
 	end
+end
+
+function GdbData.UpdateWatchExpr(data, input)
+-- ^done,value="\"string_daslkda\", '\\000' <repeats 206 times>"
+
+	local _, _, watch_val = input:find("value=\"(.*)\"")
+	return watch_val and watch_val or ""
 end
 
 function GdbData.UpdateMemory(data, input)
@@ -139,7 +148,7 @@ function GdbData.GetTrackedRegisters(data)
 end
 
 function GdbData.SetupRegisterDataCmd(data, cmd_data)
-	local cmd = { "-data-list-register-values r", }
+	local cmd = { "-data-list-register-values x", }
 
 	if data.registers then
 		for name, val in pairs(data.registers) do

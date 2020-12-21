@@ -8,6 +8,7 @@ INC="-I${DIR}src/\
  -I${DIR}imgui/"
 WRN="-Wall -Werror"
 DBG="-ggdb"
+#DBG="-O2"
 OUT="${DIR}bin/GdbVkGui"
 
 SRC="${DIR}src/main.c\

@@ -10,6 +10,7 @@
 #include "Gui/GuiLayer.h"
 #include "LuaLayer.h"
 #include "ProcessIO.h"
+#include "UtilityMacros.h"
 #include "Vulkan/VulkanLayer.h"
 #include "WindowInterface.h"
 
@@ -99,7 +100,9 @@ main(const int argc, const char* argv[])
     int  pid_status     = 0;
     bool close_frontend = false;
     if (waitpid(gdb_process, &pid_status, WNOHANG) == gdb_process) {
-        write(STDOUT_FILENO, "Gdb exitted.", 11);
+        int wout = write(STDOUT_FILENO, "Gdb exitted.", 11);
+        UNUSED_VAR(wout);
+
         close_frontend = true;
     }
 
@@ -113,7 +116,7 @@ main(const int argc, const char* argv[])
     InitFrontend(&settings);
 
     double frame_time = NanoToSec(GetHighResTime());
-    double fps        = 1.0 / 61.0;
+    double fps        = 1.0 / 75.0;
     while (close_frontend == false) {
         // write(STDOUT_FILENO, "\nGdb input: ", 12);
         // char input[128];
@@ -131,7 +134,8 @@ main(const int argc, const char* argv[])
         ProcessGuiFrame(&app_win, DrawFrontend);
 
         if (waitpid(gdb_process, &pid_status, WNOHANG) == gdb_process) {
-            write(STDOUT_FILENO, "Gdb exitted.", 11);
+            int wout = write(STDOUT_FILENO, "Gdb exitted.", 11);
+            UNUSED_VAR(wout);
             close_frontend = true;
         }
 
@@ -144,7 +148,8 @@ main(const int argc, const char* argv[])
     }
     close(fd_frontend_to_gdb[1]);
 
-    write(STDOUT_FILENO, "\nDone. \n", 9);
+    int wout = write(STDOUT_FILENO, "\nDone. \n", 9);
+    UNUSED_VAR(wout);
 
     // close gdb if still open
     if (waitpid(gdb_process, &pid_status, WNOHANG) != gdb_process) {

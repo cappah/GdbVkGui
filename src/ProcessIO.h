@@ -32,6 +32,7 @@ extern "C"
     double NanoToSec(uint64_t nanosecs);
 
     void TimedWait(double secs);
+    void BusyWait(double secs);
 
     //-----------------------------------------------------------------------------
 
