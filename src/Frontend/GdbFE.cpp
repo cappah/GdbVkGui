@@ -86,6 +86,12 @@ static int
 SetEditorFileLineNum(lua_State* L);
 
 static int
+GetEditorFileLineNum(lua_State* L);
+
+static int
+SetEditorBkPts(lua_State* L);
+
+static int
 ShowTextEditor(lua_State* L);
 
 static void
@@ -122,6 +128,8 @@ LoadResources(const LoadSettings* lset)
     AddCFunc(lstate, "ReadFromGdb", ReadFromGdb);
     AddCFunc(lstate, "SetEditorFile", SetEditorFile);
     AddCFunc(lstate, "SetEditorFileLineNum", SetEditorFileLineNum);
+    AddCFunc(lstate, "GetEditorFileLineNum", GetEditorFileLineNum);
+    AddCFunc(lstate, "SetEditorBkPts", SetEditorBkPts);
     AddCFunc(lstate, "ShowTextEditor", ShowTextEditor);
 
     // initialize any neccessary lua state
@@ -248,6 +256,33 @@ SetEditorFileLineNum(lua_State* L)
     TextEditor::Coordinates cpos(line_num, clmn_num);
     s_editor.SetCursorPosition(cpos);
 
+    return 0;
+}
+
+static int
+GetEditorFileLineNum(lua_State* L)
+{
+    TextEditor::Coordinates cpos = s_editor.GetCursorPosition();
+
+    lua_pushinteger(L, cpos.mLine);
+
+    return 1;
+}
+
+static int
+SetEditorBkPts(lua_State* L)
+{
+    uint32_t bkpt_cnt = (uint32_t)luaL_checkinteger(L, 1);
+    if (bkpt_cnt) {
+        float* fbuff = (float*)WmMalloc(bkpt_cnt * sizeof(float));
+        ReadFBufferFromLua(fbuff, bkpt_cnt, 2);
+
+        TextEditor::Breakpoints bkpts;
+        for (uint32_t i = 0; i < bkpt_cnt; i++) {
+            bkpts.insert(fbuff[i]);
+        }
+        s_editor.SetBreakpoints(bkpts);
+    }
     return 0;
 }
 

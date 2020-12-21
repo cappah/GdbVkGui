@@ -138,6 +138,10 @@ function GuiRender.Present(data, width, height)
 	if data.user_args and (data.user_args.WatchExpr == nil) then
 		data.user_args.WatchExpr = { { expr = "", value = "" } }
 	end
+	-- if breakpoints does not exist, create default
+	if data.user_args and (data.user_args.Breaks == nil) then
+		data.user_args.Breaks = { { active = false, line = "", file = "", cond = "" } }
+	end
 
 	---------------------------------------------------------------------------
 	-- Shortcut keys
@@ -252,8 +256,68 @@ function GuiRender.Present(data, width, height)
 		end
 	end
 
+	-- right click menu
+	if ImGui.IsMouseReleased(imgui.enums.mouse.Right) then
+		ImGui.OpenPopup("ContextMenu")
+	end
+
+	if ImGui.BeginPopup("ContextMenu") then
+		local line_num = GetEditorFileLineNum()
+		ImGui.Text(string.format("%s : %d", data.open_file.short, line_num + 1))
+
+		ImGui.Separator()
+
+		if ImGui.Button("Insert Breakpoint at cursor") then
+		end
+		if ImGui.Button("Insert Temporary Breakpoint at cursor") then
+		end
+		if ImGui.Button("Continue until cursor") then
+		end
+
+		ImGui.EndPopup()
+	end
+
 	if data.open_file.is_open then
 		ShowTextEditor()
+	end
+
+	ImGui.End()
+
+	------------------------------------------------------------------------
+
+	ImGui.Begin("BreakPoints")
+
+	if ImGui.Button("Clear all breakpoints") then
+	end
+
+	local tbl_sz = ImGui.GetWindowSize()
+	tbl_sz[2] = tbl_sz[2] - 60
+	if ImGui.BeginTable("##BreakPts", 4, tbl_sz) then
+		ImGui.TableNextRow()
+		ImGui.TableSetColumnIndex(0)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, " ")
+		ImGui.TableSetColumnIndex(1)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "file")
+		ImGui.TableSetColumnIndex(2)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "line")
+		ImGui.TableSetColumnIndex(3)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "Conditional")
+
+		for i, brk_pt in ipairs(data.user_args.Breaks) do
+			ImGui.TableNextRow()
+
+			ImGui.TableSetColumnIndex(0)
+			clicked, brk_pt.active = ImGui.CheckBox("##bkpt_flag"..i, brk_pt.active)
+			if clicked then
+				if brk_pt.active then
+					print("Activated break point")
+				else
+					print("Disabled break point")
+				end
+			end
+
+		end
+		ImGui.EndTable()
 	end
 
 	ImGui.End()

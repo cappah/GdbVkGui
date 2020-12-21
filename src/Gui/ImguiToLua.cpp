@@ -247,6 +247,12 @@ SetItemAllowOverlap(lua_State* L);
 
 static int
 IsKeyPressed(lua_State* L);
+static int
+IsMouseDown(lua_State* L);
+static int
+IsMouseClicked(lua_State* L);
+static int
+IsMouseReleased(lua_State* L);
 
 /*
  * Reimplemented functions
@@ -335,6 +341,9 @@ static const struct luaL_Reg s_imgui_lib[] = {
     { "GetItemRectSize", GetItemRectSize },
     { "SetItemAllowOverlap", SetItemAllowOverlap },
     { "IsKeyPressed", IsKeyPressed },
+    { "IsMouseDown", IsMouseDown },
+    { "IsMouseClicked", IsMouseClicked },
+    { "IsMouseReleased", IsMouseReleased },
     { NULL, NULL }
 };
 
@@ -432,6 +441,20 @@ luaopen_ImguiLib(lua_State* L)
 
     // Enums table : text constants finish
     lua_setfield(L, -2, "text");
+
+    // Enums table : mouse type constants start
+    lua_newtable(L);
+    luaL_checkstack(L, 2, "too many arguments");
+
+    lua_pushinteger(L, ImGuiMouseButton_Left);
+    lua_setfield(L, -2, "Left");
+    lua_pushinteger(L, ImGuiMouseButton_Right);
+    lua_setfield(L, -2, "Right");
+    lua_pushinteger(L, ImGuiMouseButton_Middle);
+    lua_setfield(L, -2, "Middle");
+
+    // Enums table : mouse type constants finish
+    lua_setfield(L, -2, "mouse");
 
     // enums table finish
     lua_setfield(L, -2, "enums");
@@ -2098,6 +2121,48 @@ IsKeyPressed(lua_State* L)
         }
     }
     lua_pushboolean(L, is_pressed);
+    return 1;
+}
+
+static int
+IsMouseDown(lua_State* L)
+{
+    int  top        = lua_gettop(L);
+    bool is_pressed = false;
+
+    if (top == 1) {
+        ImGuiMouseButton mb = (ImGuiMouseButton)luaL_checkinteger(L, 1);
+        is_pressed          = ImGui::IsMouseDown(mb);
+    }
+    lua_pushboolean(L, is_pressed);
+    return 1;
+}
+
+static int
+IsMouseClicked(lua_State* L)
+{
+    int  top        = lua_gettop(L);
+    bool is_clicked = false;
+
+    if (top == 1) {
+        ImGuiMouseButton mb = (ImGuiMouseButton)luaL_checkinteger(L, 1);
+        is_clicked          = ImGui::IsMouseClicked(mb);
+    }
+    lua_pushboolean(L, is_clicked);
+    return 1;
+}
+
+static int
+IsMouseReleased(lua_State* L)
+{
+    int  top         = lua_gettop(L);
+    bool is_released = false;
+
+    if (top == 1) {
+        ImGuiMouseButton mb = (ImGuiMouseButton)luaL_checkinteger(L, 1);
+        is_released         = ImGui::IsMouseReleased(mb);
+    }
+    lua_pushboolean(L, is_released);
     return 1;
 }
 
