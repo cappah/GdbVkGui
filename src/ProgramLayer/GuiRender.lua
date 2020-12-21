@@ -10,11 +10,11 @@ function GuiRender.Present(data, width, height)
 	local PrintFrame = function(a,b) print(b) end
 
 	local buttons = {
-		{ id        = "Update Stack Frame", 
+		{ id        = "Refresh", 
 		  args      = { "-stack-info-frame" },
 		  parse     = GdbData.UpdateFramePos, 
 		  upd_frame = false,
-		  invisible = true,
+		  invisible = false,
 		  mod_args  = nil,
 		  auto_upd  = false,
 	    },
@@ -104,7 +104,7 @@ function GuiRender.Present(data, width, height)
 		  args      = { "-data-evaluate-expression", " @expression" },
 		  parse     = PrintFrame, 
 		  upd_frame = false, 
-		  invisible = false,
+		  invisible = true,
 		  mod_args  = GdbData.ParseDataInput,
 		  auto_upd  = false,
 	    },
@@ -180,6 +180,8 @@ function GuiRender.Present(data, width, height)
 
 				GdbData.UpdateBreakpoint(data, ExecuteCmd("-stack-info-frame"))
 
+				ReadFromGdb() -- clear stdout
+
 				trigger_updates = true
 			end
 		end
@@ -221,30 +223,37 @@ function GuiRender.Present(data, width, height)
 
 	------------------------------------------------------------------------
 	
-	ImGui.Begin("Shortcuts")
+	ImGui.Begin(string.format("%s###CodeWnd", data.open_file.short))
 
 	for _, val in ipairs(buttons) do
-		if (val.invisible == false) and ImGui.Button(val.id) then
-			if val.mod_args then
-				val.parse(data, ExecuteCmd(table.concat(val.mod_args(data, val), "")))
-			else
-				val.parse(data, ExecuteCmd(table.concat(val.args, "")))
+		if (val.invisible == false) then
+			ImGui.SameLine()
+			if ImGui.Button(val.id) then
+				if val.mod_args then
+					val.parse(data, ExecuteCmd(table.concat(val.mod_args(data, val), "")))
+				else
+					val.parse(data, ExecuteCmd(table.concat(val.args, "")))
+				end
+
+				-- this command resets to stack trace to lowest frame
+				if val.upd_frame then data.curr_stack_frame = 1 end
+
+				trigger_updates = true
 			end
+			-- user input
+			if data.user_args[val.id] then
+				for user_i, user_v in ipairs(data.user_args[val.id]) do
+					ImGui.Text(" - "); ImGui.SameLine()
 
-			-- this command resets to stack trace to lowest frame
-			if val.upd_frame then data.curr_stack_frame = 1 end
-
-			trigger_updates = true
-		end
-		-- user input
-		if (val.invisible == false) and data.user_args[val.id] then
-			for user_i, user_v in ipairs(data.user_args[val.id]) do
-				ImGui.Text(" - "); ImGui.SameLine()
-
-				_, user_v.val = ImGui.InputTextWithHint(
-					"##"..val.id..user_i, user_v.id, user_v.val)
+					_, user_v.val = ImGui.InputTextWithHint(
+						"##"..val.id..user_i, user_v.id, user_v.val)
+				end
 			end
 		end
+	end
+
+	if data.open_file.is_open then
+		ShowTextEditor()
 	end
 
 	ImGui.End()
@@ -311,7 +320,7 @@ function GuiRender.Present(data, width, height)
 		for _, val in ipairs(buttons) do
 			local upd_flag = val.id == "Locals" 
 				or val.id == "Disassembly"
-				or val.id == "Update Stack Frame"
+				or val.id == "Refresh"
 				or val.id == "Register Values"
 
 			if upd_flag then
@@ -393,14 +402,18 @@ function GuiRender.Present(data, width, height)
 			ImGui.Text(var.name)
 
 			-- type
-			ImGui.TableSetColumnIndex(1)
-			ImGui.Text(var.vtype)
+			if var.vtype then
+				ImGui.TableSetColumnIndex(1)
+				ImGui.Text(var.vtype)
+			end
 
 			-- value
-			ImGui.TableSetColumnIndex(2)
-			ImGui.PushItemWidth(-1)
-			ImGui.InputText("##lv_item"..i, var.value, imgui.enums.text.ReadOnly)
-			ImGui.PopItemWidth()
+			if var.value then
+				ImGui.TableSetColumnIndex(2)
+				ImGui.PushItemWidth(-1)
+				ImGui.InputText("##lv_item"..i, var.value, imgui.enums.text.ReadOnly)
+				ImGui.PopItemWidth()
+			end
 		end
 		ImGui.EndTable()
 	end
@@ -492,6 +505,7 @@ function GuiRender.Present(data, width, height)
 
 	if ImGui.Button("Populate") then
 		GdbData.SetTrackedRegisters(data, ExecuteCmd("-data-list-register-names"))
+		GdbData.UpdateRegisters(data, ExecuteCmd(table.concat(GdbData.SetupRegisterDataCmd(data, val), "")))
 	end
 
 	tbl_sz = ImGui.GetWindowSize()
@@ -681,16 +695,6 @@ function GuiRender.Present(data, width, height)
 			ImGui.Text(data.memory.last)
 		end
 		ImGui.EndTable()
-	end
-
-	ImGui.End()
-
-	------------------------------------------------------------------------
-	
-	ImGui.Begin(string.format("%s###CodeWnd", data.open_file.short))
-
-	if data.open_file.is_open then
-		ShowTextEditor()
 	end
 
 	ImGui.End()
