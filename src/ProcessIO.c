@@ -161,7 +161,7 @@ GdbOutput(void)
 
     int    read_bytes = 1;
     double timeout    = 0;
-    while (read_bytes && (timeout < 5)) { //(timeout < 0.03)) {
+    while (read_bytes && (timeout < 0.05)) {
         read_bytes = read(s_gdb_to_frontend[0], buff, sizeof(buff));
 
         // gdb sends data
@@ -173,8 +173,8 @@ GdbOutput(void)
         else if ((read_bytes == -1) && (errno == EAGAIN)) {
             double wait_t = 0.005;
             BusyWait(wait_t);
-            // timeout += wait_t;
-            timeout++;
+            timeout += wait_t;
+            //timeout++;
         } else {
             break;
         }
