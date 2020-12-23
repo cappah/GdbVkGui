@@ -27,7 +27,7 @@ function GuiRender.Present(data, width, height)
 		  auto_upd  = true,
 	    },
 		{ id         = "Start/Run", 
-		  args       = { "run > ", ROOT_DIR, "/bin/gdbmi_output.txt" },
+		  args       = { "run > ", ROOT_DIR, "gdbmi_output.txt" },
 		  parse      = GdbData.UpdateBreakpoint, 
 		  upd_frame  = false,
 		  invisible  = false,
@@ -178,7 +178,7 @@ function GuiRender.Present(data, width, height)
 		ImGui.OpenPopup("Executable Startup Settings")
 	elseif ImGui.IsKeyPressed("r") and ImGui.IsKeyPressed("ctrl") then
 		GdbData.UpdateBreakpoint(data, ExecuteCmd(
-			"run > "..ROOT_DIR.."/bin/gdbmi_output.txt"))
+			"run > "..ROOT_DIR.."gdbmi_output.txt"))
 	elseif ImGui.IsKeyPressed("e") and ImGui.IsKeyPressed("ctrl") then
 		data.open_dialog_exe = true
 	end
@@ -853,5 +853,7 @@ function GuiRender.Present(data, width, height)
 
 	------------------------------------------------------------------------
 end
+
+package.loaded["GuiRender"] = GuiRender
 
 return GuiRender

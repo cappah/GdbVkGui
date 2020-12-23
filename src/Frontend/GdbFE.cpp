@@ -9,6 +9,16 @@
 #include <sstream>
 #include <stdlib.h>
 
+extern const char _binary__tmp_prog_luac_start;
+extern const char _binary__tmp_prog_luac_end;
+
+struct LStream
+{
+    const char* m_Data;
+    size_t      m_DataSz;
+};
+static LStream s_stream_data;
+
 static int
 LuaUpdate(void);
 
@@ -106,13 +116,26 @@ AddCFunc(lua_State* L, const char* name, lua_CFunction func)
     lua_setglobal(L, name);
 }
 
+static const char*
+LuaDataStreamer(lua_State* L, void* data, size_t* sz)
+{
+    LStream* stream_d = (LStream*)data;
+    *sz               = stream_d->m_DataSz;
+    return stream_d->m_Data; // &_binary__tmp_prog_luac_start
+}
+
 static void
 LoadResources(const LoadSettings* lset)
 {
     s_finfo.m_Contents     = (char*)WmMalloc(lset->m_MaxFileSz);
     s_finfo.m_ContentMaxSz = lset->m_MaxFileSz;
 
-    ParseLuaFile(ROOT_DIR "src/ProgramLayer/AppMain.lua");
+    UNUSED_VAR(s_stream_data);
+    UNUSED_VAR(LuaDataStreamer);
+
+    char app[512] = { 0 };
+    snprintf(app, sizeof(app), "%s/.gdbvkgui/prog.luac", getenv("HOME"));
+    ParseLuaFile(app);
 
     int32_t init_g_ref, init_f_ref;
     init_f_ref = GetLuaMethodReference("GdbApp", "Init", &init_g_ref);
@@ -144,7 +167,6 @@ LoadResources(const LoadSettings* lset)
 
     // initialize any neccessary lua state
     if (EnterLuaCallback(s_app_init.m_GlobalRef, s_app_init.m_FuncRef)) {
-
         ExitLuaCallback();
     }
 }

@@ -1,6 +1,6 @@
 -- Module that communicates w/ Gdb
 
-local Json = require "JSON"
+local Json = require "Json"
 
 local GdbData = {}
 
@@ -317,5 +317,7 @@ function GdbData.ParseDataInput(data, cmd_data)
 
 	return complete_cmd
 end
+
+package.loaded["GdbData"] = GdbData
 
 return GdbData

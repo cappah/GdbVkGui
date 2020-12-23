@@ -347,8 +347,11 @@ extern "C"
         ImGuiIO& io = ImGui::GetIO();
         io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
         io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
-        io.BackendPlatformName = "imgui_vulkan_app";
-        io.IniFilename         = "bin/imgui.ini";
+        io.BackendPlatformName = "gdbvk_app";
+
+        char* root_dir = (char*)WmMalloc(512 * sizeof(char));
+        snprintf(root_dir, 512, "%s/.gdbvkgui/imgui.ini", getenv("HOME"));
+        io.IniFilename = root_dir;
 
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 

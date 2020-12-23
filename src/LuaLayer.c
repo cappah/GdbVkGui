@@ -8,6 +8,7 @@
 #include "ProcessIO.h"
 #include "UtilityMacros.h"
 #include "WindowInterface.h"
+#include <stdlib.h>
 
 static lua_State* s_lstate;
 static uint64_t   s_lua_alloc_count;
@@ -48,23 +49,25 @@ InitLuaState(void)
 
         luaL_openlibs(s_lstate); // opens standard libraries
 
+        char root_dir[512] = { 0 };
+        snprintf(root_dir, sizeof(root_dir), "%s/.gdbvkgui/", getenv("HOME"));
+
         // add search paths for scripts
         char new_path[1024];
         lua_getglobal(s_lstate, "package");
         lua_getfield(s_lstate, -1, "path");
         snprintf(new_path,
                  sizeof(new_path),
-                 "%s;%s/src/ProgramLayer/?.lua",
+                 "%s;%s?.lua",
                  lua_tostring(s_lstate, -1),
-                 ROOT_DIR);
+                 root_dir);
 
         lua_pop(s_lstate, 1); // get rid of the old path string on the stack
         lua_pushstring(s_lstate, new_path); // push the new one
         lua_setfield(s_lstate, -2, "path"); // set the field "path"
         lua_pop(s_lstate, 1);               // pop package table
 
-        // make easily accessible
-        lua_pushstring(s_lstate, ROOT_DIR);
+        lua_pushstring(s_lstate, root_dir);
         lua_setglobal(s_lstate, "ROOT_DIR");
 
         // add user libraries and functions
@@ -89,6 +92,27 @@ handle_lua_error()
     lua_pop(s_lstate, 1);
 
     AppForceQuit();
+}
+
+int
+ParseLuaBinary(const char* name, void* chunk_data, lua_Reader reader)
+{
+    if (!s_lstate) {
+        return 0;
+    }
+
+    // read file then execute
+    if (lua_load(s_lstate, reader, chunk_data, name, NULL) != 0) {
+        handle_lua_error();
+        return 0;
+    }
+
+    int returned_vars = 0;
+    if (lua_resume(s_lstate, NULL, 0, &returned_vars) != 0) {
+        handle_lua_error();
+        // return false; // continue running lua thru errors
+    }
+    return returned_vars;
 }
 
 int

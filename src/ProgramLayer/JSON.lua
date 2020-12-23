@@ -1588,6 +1588,8 @@ function OBJDEF:new(args)
 	 return setmetatable(new, OBJDEF)
 end
 
+package.loaded["Json"] = OBJDEF:new()
+
 return OBJDEF:new()
 
 --

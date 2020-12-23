@@ -7,8 +7,8 @@ INC="-I${DIR}src/\
  -I${DIR}lua-5.4.2/src/\
  -I${DIR}imgui/"
 WRN="-Wall -Werror"
-DBG="-ggdb"
-#DBG="-O2"
+#DBG="-ggdb"
+DBG="-O2"
 OUT="${DIR}bin/GdbVkGui"
 
 SRC="${DIR}src/main.c\
@@ -49,7 +49,7 @@ OBJPP="${DIR}bin/GuiLayer.o\
 
 ILIB="-L${DIR}lua-5.4.2/src/"
 LIB="-lm -ldl -lX11 -lxcb -lxcb-icccm -lxcb-keysyms -lxcb-xinput -llua"
-DEF="-DVK_NO_PROTOTYPES -DROOT_DIR=\"${DIR}\""
+DEF="-DVK_NO_PROTOTYPES"
 
 # build lua if necessary
 if [[ ! -f "lua-5.4.2/src/liblua.a" ]]; then
@@ -71,7 +71,27 @@ if [[ ! -f "${DIR}/bin/imgui.o" ]]; then
 	g++ -c ${INC} ${DBG} ${DEF} ${SRCPP2}
 fi
 echo "g++ ${OBJ} ${OBJPP} ${LIB} -o${OUT}"
-g++ ${OBJ} ${OBJPP} ${ILIB} ${LIB} -o${OUT}
+
+# convert imgui settings to linkable object file
+cp ${DIR}src/ProgramLayer/imgui.ini /tmp/imguisettings.ini
+ld -r -b binary /tmp/imguisettings.ini -o /tmp/imguisettings.o
+echo "ld -r -b binary /tmp/imguisettings.ini -o /tmp/imguisettings.o"
+
+# create luac program and generate linkable object file
+"${DIR}lua-5.4.2/install/bin/luac" -o ${DIR}/src/ProgramLayer/prog.luac\
+ ${DIR}src/ProgramLayer/JSON.lua\
+ ${DIR}src/ProgramLayer/GdbData.lua\
+ ${DIR}src/ProgramLayer/GuiRender.lua\
+ ${DIR}src/ProgramLayer/AppMain.lua
+
+cp ${DIR}src/ProgramLayer/prog.luac /tmp/prog.luac
+ld -r -b binary /tmp/prog.luac -o /tmp/prog.o
+echo "ld -r -b binary /tmp/prog.luac -o prog.o"
+
+# PROG=$(<${DIR}/src/ProgramLayer/prog.luac)
+g++ ${OBJ} ${OBJPP} /tmp/prog.o /tmp/imguisettings.o ${ILIB} ${LIB} -o${OUT}
+
+
 cd ${DIR}
 
 echo 

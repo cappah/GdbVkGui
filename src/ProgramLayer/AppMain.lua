@@ -4,8 +4,7 @@
 ImGui     = ImGuiLib
 GuiRender = require "GuiRender"
 GdbData   = require "GdbData"
-
-local Json = require "JSON"
+local Json = require "Json"
 
 GdbApp = {
 	exe_filename = "",
@@ -41,7 +40,7 @@ end
 function GdbApp:OnExit(args)
 	local session = Json:encode_pretty(self.user_args)
 
-	local out_file = ROOT_DIR.."/bin/session.json"
+	local out_file = ROOT_DIR.."session.json"
 	local file = io.open(out_file, "w")
 	if file then
 		file:write(session)
@@ -53,7 +52,7 @@ function GdbApp:Update(args)
 	if ImGui.BeginMainMenuBar() then
 		if ImGui.BeginMenu("File") then
 			if ImGui.MenuItem("Load Last Session", false) then
-				local in_file = ROOT_DIR.."/bin/session.json"
+				local in_file = ROOT_DIR.."session.json"
 				local file = io.open(in_file, "r")
 				if file then
 					local file_contents = {}
@@ -91,14 +90,6 @@ function GdbApp:Update(args)
 			end
 
 			ImGui.Separator()
-			if ImGui.MenuItem("Reload Modules", false) then
-				print("Reloading all scripts...")
-				package.loaded["GdbData"] = nil
-				package.loaded["GuiRender"] = nil
-
-				GdbData = require("GdbData")
-				GuiRender = require("GuiRender")
-			end
 			ImGui.EndMenu()
 		end
 		ImGui.EndMainMenuBar()

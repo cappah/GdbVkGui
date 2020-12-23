@@ -141,6 +141,8 @@ AppLoadWindow(AppWindowData* win)
     }
         */
     xcb_atom_t name_atm = GetAtomFromStr(win->m_Connection, "_NET_WM_NAME");
+    xcb_atom_t name_atm2 =
+      GetAtomFromStr(win->m_Connection, "_NET_WM_ICON_NAME");
 
     /* set the window_title of the window */
     const char* title = WINDOW_TITLE;
@@ -156,6 +158,22 @@ AppLoadWindow(AppWindowData* win)
                         XCB_PROP_MODE_REPLACE,
                         win->m_Window,
                         name_atm,
+                        XCB_ATOM_STRING,
+                        8,
+                        15, // strlen(title),
+                        title);
+    xcb_change_property(win->m_Connection,
+                        XCB_PROP_MODE_REPLACE,
+                        win->m_Window,
+                        XCB_ATOM_WM_ICON_NAME,
+                        XCB_ATOM_STRING,
+                        8,
+                        15, // strlen(title),
+                        title);
+    xcb_change_property(win->m_Connection,
+                        XCB_PROP_MODE_REPLACE,
+                        win->m_Window,
+                        name_atm2,
                         XCB_ATOM_STRING,
                         8,
                         15, // strlen(title),

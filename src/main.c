@@ -2,6 +2,9 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -13,6 +16,11 @@
 #include "UtilityMacros.h"
 #include "Vulkan/VulkanLayer.h"
 #include "WindowInterface.h"
+
+extern const char _binary__tmp_imguisettings_ini_start;
+extern const char _binary__tmp_imguisettings_ini_end;
+extern const char _binary__tmp_prog_luac_start;
+extern const char _binary__tmp_prog_luac_end;
 
 static void
 PrintErr(const char* err_stdout)
@@ -44,6 +52,65 @@ CreateGdbProcess(const char* g_exe, int* f_to_g, int* g_to_f)
     return gdb_process;
 }
 
+static void
+CreateUserDir(void)
+{
+    char* home_dir = getenv("HOME");
+    if (home_dir == NULL) {
+        int wout = write(STDERR_FILENO, "\nFailed to locate HOME.\n", 25);
+        UNUSED_VAR(wout);
+        _exit(3);
+    }
+
+    int  home_len       = strlen(home_dir);
+    char filename[1024] = { 0 };
+    memcpy(filename, home_dir, home_len);
+
+    const char* dir_name = "/.gdbvkgui";
+    int         dir_len  = strlen(dir_name);
+
+    // create directory
+    memcpy(filename + home_len, dir_name, dir_len);
+    mkdir(filename, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+
+    const char* files_to_make[2] = {
+        "/.gdbvkgui/imgui.ini",
+        "/.gdbvkgui/prog.luac",
+    };
+    const char* data_to_dump[2] = {
+        &_binary__tmp_imguisettings_ini_start,
+        &_binary__tmp_prog_luac_start,
+    };
+    int data_sz[2] = {
+        (int)(&_binary__tmp_imguisettings_ini_end -
+              &_binary__tmp_imguisettings_ini_start),
+        (int)(&_binary__tmp_prog_luac_end - &_binary__tmp_prog_luac_start),
+    };
+
+    for (int i = 0; i < 2; i++) {
+        FileInfo f_info = { 0 };
+        memset(filename, 0, sizeof(filename));
+
+        memcpy(filename, home_dir, home_len);
+        memcpy(filename + home_len, files_to_make[i], strlen(files_to_make[i]));
+
+        if (GetFileInfo(filename, &f_info) == false) {
+            int fd = open(filename,
+                          O_WRONLY | O_CREAT,
+                          S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            // dump default contents
+            if (fd != -1) {
+                int wout = write(fd, data_to_dump[i], data_sz[i]);
+                UNUSED_VAR(wout);
+
+                close(fd);
+            } else {
+                PrintErr("Failed to create default files");
+            }
+        }
+    }
+}
+
 int
 main(const int argc, const char* argv[])
 {
@@ -52,6 +119,8 @@ main(const int argc, const char* argv[])
     if (access(gdb_exe, X_OK)) {
         PrintErr("Failed to find gdb exe: ");
     }
+
+    CreateUserDir();
 
     // Open non-blocking pipes for inter-process communication
     // [0] : read end

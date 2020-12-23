@@ -1,15 +1,20 @@
 #pragma once
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
     typedef struct lua_State lua_State;
+    typedef const char* (*lua_Reader)(lua_State*, void*, size_t*);
 
     lua_State* InitLuaState(void);
 
     lua_State* GetLuaState(void);
+
+    int ParseLuaBinary(const char* name, void* chunk_data, lua_Reader reader);
 
     int ParseLuaFile(const char* filename);
 
