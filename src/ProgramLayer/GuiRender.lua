@@ -13,10 +13,27 @@ function GuiRender.Present(data, width, height)
 		{ id        = "Refresh", 
 		  args      = { "-stack-info-frame" },
 		  parse     = GdbData.UpdateFramePos, 
-		  upd_frame = false,
+		  upd_frame = false, --i.e. set the stack frame number to 1
 		  invisible = false,
 		  mod_args  = nil,
 		  auto_upd  = false,
+	    },
+		{ id        = "UpdateBreaks", 
+		  args      = { "-break-list" },
+		  parse     = GdbData.ParseBreakpoints, 
+		  upd_frame = false,
+		  invisible = true,
+		  mod_args  = nil,
+		  auto_upd  = true,
+	    },
+		{ id         = "Start/Run", 
+		  args       = { "run > ", ROOT_DIR, "/bin/gdbmi_output.txt" },
+		  parse      = GdbData.UpdateBreakpoint, 
+		  upd_frame  = false,
+		  invisible  = false,
+		  mod_args   = nil,
+		  auto_upd   = false,
+		  no_trigger = true,
 	    },
 		{ id        = "Next",
 		  args      = { "-exec-next" },
@@ -59,7 +76,11 @@ function GuiRender.Present(data, width, height)
 		  auto_upd  = true,
 	    },
 		{ id        = "Disassembly",
-		  args      = { "-data-disassemble -s \"$pc - ", "@before", "\" -e \"$pc + ", "@after", "\" -- 0" },
+		  args      = { "-data-disassemble -s \"$pc - ", 
+						"@before", 
+						"\" -e \"$pc + ", 
+						"@after", 
+						"\" -- 0" },
 		  parse     = GdbData.UpdateAsm, 
 		  upd_frame = false, 
 		  invisible = true,
@@ -100,7 +121,7 @@ function GuiRender.Present(data, width, height)
 		  auto_upd  = false,
 		  defaults  = { "&main", 100 }
 	    },
-		{ id        = "Watch",
+		{ id        = "WatchEval",
 		  args      = { "-data-evaluate-expression", " @expression" },
 		  parse     = PrintFrame, 
 		  upd_frame = false, 
@@ -134,25 +155,32 @@ function GuiRender.Present(data, width, height)
 		end
 	end
 
+	if data.user_args and (data.user_args.FetchTypes == nil) then
+		data.user_args.FetchTypes = false
+	end
+
 	-- if watch args does not exist, create default
-	if data.user_args and (data.user_args.WatchExpr == nil) then
-		data.user_args.WatchExpr = { { expr = "", value = "" } }
+	if data.user_args and (data.user_args.Watch == nil) then
+		data.user_args.Watch = {  }
 	end
 	-- if breakpoints does not exist, create default
 	if data.user_args and (data.user_args.Breaks == nil) then
-		data.user_args.Breaks = { { active = false, line = "", file = "", cond = "" } }
+		data.user_args.Breaks = {}
 	end
 
 	---------------------------------------------------------------------------
 	-- Shortcut keys
 	if ImGui.IsKeyPressed("o") and ImGui.IsKeyPressed("ctrl") then
 		data.open_dialog = true
-	end
-	if ImGui.IsKeyPressed("e") and ImGui.IsKeyPressed("ctrl") then
+	elseif ImGui.IsKeyPressed("e") and 
+		   ImGui.IsKeyPressed("ctrl") and 
+		   ImGui.IsKeyPressed("shift") then
+		ImGui.OpenPopup("Executable Startup Settings")
+	elseif ImGui.IsKeyPressed("r") and ImGui.IsKeyPressed("ctrl") then
+		GdbData.UpdateBreakpoint(data, ExecuteCmd(
+			"run > "..ROOT_DIR.."/bin/gdbmi_output.txt"))
+	elseif ImGui.IsKeyPressed("e") and ImGui.IsKeyPressed("ctrl") then
 		data.open_dialog_exe = true
-	end
-	if ImGui.IsKeyPressed("r") and ImGui.IsKeyPressed("ctrl") then
-		data.reload_module = true
 	end
 
 	---------------------------------------------------------------------------
@@ -163,62 +191,52 @@ function GuiRender.Present(data, width, height)
 	elseif data.open_dialog_exe then
 		ImGui.OpenPopup("Open Executable to Debug")
 		data.open_dialog_exe = false
-	elseif data.reload_module then
-		ImGui.OpenPopup("Reload Module")
-		data.reload_module = false
 	end
 
 	------------------------------------------------------------------------
 	-- load exe to gdb and set temp breakpoint in main
 
-	local ename <const> = FileDialog("Open Executable to Debug", { width * 0.7, height * 0.5 } )
+	local ename <const> = FileDialog(
+		"Open Executable to Debug", { width * 0.7, height * 0.5 } )
 	if ename then
 		data.exe_filename = ename
-
-		local cmd_exe = string.format("-file-exec-and-symbols %s", ename)
-		if SendToGdb(cmd_exe) then
-			_ = ReadFromGdb()
-			if SendToGdb("-exec-run --start") then
-				local response <const> = ReadFromGdb()
-				data.output_txt = response
-
-				GdbData.UpdateBreakpoint(data, ExecuteCmd("-stack-info-frame"))
-
-				ReadFromGdb() -- clear stdout
-
-				trigger_updates = true
-			end
+		if data.user_args.ExeStart == nil then
+			data.user_args.ExeStart = { exe = ename, args = "" }
+		else
+			data.user_args.ExeStart.exe = ename
 		end
+
+		ImGui.CloseCurrentPopup()
+		ImGui.OpenPopup("Executable Startup Settings")
 	end
 
-	local fname <const> = FileDialog("Open File", { 600, 300 } )
+	local fname <const> = FileDialog("Open File", { width * 0.7, height * 0.5 } )
 	if fname then
-		data.new_file = fname
+		GdbData.UpdateFile(data, fname, fname, 1, 0, "")
 	end
 
-	------------------------------------------------------------------------
-	-- UI for reloading modules
-	
-	local clicked, _ = ImGui.BeginPopupModal("Reload Module")
+	local clicked, _ = ImGui.BeginPopupModal("Executable Startup Settings")
 	if clicked then
-		ImGui.Text("Select module to reload :")
-		ImGui.NewLine()
+		ImGui.Text("Executable: "); ImGui.SameLine()
+		ImGui.PushItemWidth(-1)
+		_, data.user_args.ExeStart.exe = ImGui.InputText(
+			"##exe_name", data.user_args.ExeStart.exe)
+		ImGui.PopItemWidth()
 
-		for i, val in ipairs(data.module_list) do
-			ImGui.Text("> "..val[2])
-			ImGui.SameLine()
-			ImGui.Dummy({5, 2})
-			ImGui.SameLine()
+		ImGui.Text("Arguments : "); ImGui.SameLine()
+		ImGui.PushItemWidth(-1)
+		_, data.user_args.ExeStart.args = ImGui.InputText(
+			"##exe_args", data.user_args.ExeStart.args)
+		ImGui.PopItemWidth()
 
-			if ImGui.SmallButton("reload##reload_mod"..i) then
-				data.force_reload = i
-				trigger_updates = true
+		ImGui.Separator()
+		if ImGui.Button("Start") then
+			GdbData.LoadExe(data)
 
-				ImGui.CloseCurrentPopup()
-			end
+			ImGui.CloseCurrentPopup()
 		end
-		
-		if ImGui.Button("Cancel##reload_mod0") then
+		ImGui.SameLine()
+		if ImGui.Button("Cancel") then
 			ImGui.CloseCurrentPopup()
 		end
 
@@ -242,7 +260,7 @@ function GuiRender.Present(data, width, height)
 				-- this command resets to stack trace to lowest frame
 				if val.upd_frame then data.curr_stack_frame = 1 end
 
-				trigger_updates = true
+				if val.no_trigger == nil then trigger_updates = true end
 			end
 			-- user input
 			if data.user_args[val.id] then
@@ -268,10 +286,24 @@ function GuiRender.Present(data, width, height)
 		ImGui.Separator()
 
 		if ImGui.Button("Insert Breakpoint at cursor") then
+			ExecuteCmd("-break-insert --source "..data.open_file.full..
+				" --line "..(line_num + 1))
+			GdbData.ParseBreakpoints(data, ExecuteCmd("-break-list"))
+
+			ImGui.CloseCurrentPopup()
 		end
 		if ImGui.Button("Insert Temporary Breakpoint at cursor") then
+			ExecuteCmd("-break-insert -t --source "..data.open_file.full..
+				" --line "..(line_num + 1))
+			GdbData.ParseBreakpoints(data, ExecuteCmd("-break-list"))
+
+			ImGui.CloseCurrentPopup()
 		end
 		if ImGui.Button("Continue until cursor") then
+			print(ExecuteCmd(string.format(
+				"-exec-until %s:%d", data.open_file.full, line_num + 1)))
+			trigger_updates = true
+			ImGui.CloseCurrentPopup()
 		end
 
 		ImGui.EndPopup()
@@ -284,38 +316,88 @@ function GuiRender.Present(data, width, height)
 	ImGui.End()
 
 	------------------------------------------------------------------------
+	
+	-- force size on columns
+	-- kinda hacky way to get what I want here
+	local spacing20 = "                    "
 
 	ImGui.Begin("BreakPoints")
 
 	if ImGui.Button("Clear all breakpoints") then
 	end
 
+	ImGui.Text("Status symbols: t = temporary, w = watchpoint")
+
 	local tbl_sz = ImGui.GetWindowSize()
-	tbl_sz[2] = tbl_sz[2] - 60
-	if ImGui.BeginTable("##BreakPts", 4, tbl_sz) then
+	tbl_sz[2] = tbl_sz[2] - 90
+	if ImGui.BeginTable("##BreakPts", 7, tbl_sz) then
 		ImGui.TableNextRow()
 		ImGui.TableSetColumnIndex(0)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, " ")
 		ImGui.TableSetColumnIndex(1)
-		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "file")
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "hit")
 		ImGui.TableSetColumnIndex(2)
-		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "line")
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "status")
 		ImGui.TableSetColumnIndex(3)
-		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "Conditional")
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "file")
+		ImGui.TableSetColumnIndex(4)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "line")
+		ImGui.TableSetColumnIndex(5)
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "Conditional"..spacing20)
 
 		for i, brk_pt in ipairs(data.user_args.Breaks) do
 			ImGui.TableNextRow()
 
+			local is_active = false
 			ImGui.TableSetColumnIndex(0)
-			clicked, brk_pt.active = ImGui.CheckBox("##bkpt_flag"..i, brk_pt.active)
-			if clicked then
-				if brk_pt.active then
-					print("Activated break point")
-				else
-					print("Disabled break point")
+			clicked, is_active = ImGui.CheckBox("##bkpt_flag"..i, brk_pt.enabled == "y")
+			if clicked and (is_active == false) then
+				ExecuteCmd(string.format("-break-disable %d", tonumber(brk_pt.number)))
+				GdbData.ParseBreakpoints(data, ExecuteCmd("-break-list"))
+			elseif clicked and is_active then
+				ExecuteCmd(string.format("-break-enable %d", tonumber(brk_pt.number)))
+				GdbData.ParseBreakpoints(data, ExecuteCmd("-break-list"))
+			end
+
+			ImGui.TableSetColumnIndex(1)
+			ImGui.Text(brk_pt.times)
+
+			local brk_type = brk_pt.disp == "del" and "t" or ""
+			ImGui.TableSetColumnIndex(2)
+			ImGui.Text(brk_type)
+
+			if brk_pt.file then
+				ImGui.TableSetColumnIndex(3)
+				ImGui.Text(brk_pt.file)
+			end
+			if brk_pt.line then
+				ImGui.TableSetColumnIndex(4)
+				ImGui.Text(brk_pt.line)
+			end
+			if brk_pt.cond then
+				ImGui.TableSetColumnIndex(5)
+				ImGui.PushItemWidth(-1)
+				clicked, brk_pt.cond = ImGui.InputText(
+					"##bkpt_cond"..i, brk_pt.cond, imgui.enums.text.EnterReturnsTrue)
+				ImGui.PopItemWidth()
+				if clicked then
+					-- edit conditional
+					ExecuteCmd("-break-condition "..brk_pt.number.." "..brk_pt.cond)
+					GdbData.ParseBreakpoints(data, ExecuteCmd("-break-list"))
 				end
 			end
 
+			ImGui.TableSetColumnIndex(6)
+			if ImGui.Button("Delete##brk_pt"..i) then
+				-- remove breakpoint
+				ExecuteCmd(string.format("-break-delete %d", tonumber(brk_pt.number)))
+				GdbData.ParseBreakpoints(data, ExecuteCmd("-break-list"))
+			end
+			ImGui.SameLine()
+			if ImGui.Button("Goto##brk_pt"..i) then
+				GdbData.UpdateFile(
+					data, brk_pt.file, brk_pt.fullname, brk_pt.line, 0, brk_pt.func)
+			end
 		end
 		ImGui.EndTable()
 	end
@@ -413,36 +495,33 @@ function GuiRender.Present(data, width, height)
 		end
 
 		-- watch window
-		for i, watch_data in ipairs(data.user_args.WatchExpr) do
+		for i, watch_data in ipairs(data.user_args.Watch) do
 			if watch_data.expr ~= "" then
 				local val = GdbData.UpdateWatchExpr(
 					data, ExecuteCmd("-data-evaluate-expression "..watch_data.expr))
 				watch_data.value = val == "" and watch_data.value or val
 			end
 		end
+		GdbData.ShowBreaks(data)
 	end
 
 	------------------------------------------------------------------------
 
-	ImGui.Begin("Ouput")
+	--ImGui.Begin("Ouput")
 
-	ImGui.TextWrapped(data.output_txt)
-	ImGui.Separator()
+	--ImGui.TextWrapped(data.output_txt)
+	--ImGui.Separator()
 
-	ImGui.TextWrapped(data.frame_info_txt)
+	--ImGui.TextWrapped(data.frame_info_txt)
 
-	ImGui.End()
+	--ImGui.End()
 
 	------------------------------------------------------------------------
-	
-	-- force size on columns
-	-- kinda hacky way to get what I want here
-	local spacing20 = "                    "
 
 	ImGui.Begin("Locals")
 
 	local txt = "Retrieve type info (requires round trip thru GDB)"
-	clicked, data.get_local_types = ImGui.CheckBox(txt, data.get_local_types)
+	clicked, data.user_args.FetchTypes = ImGui.CheckBox(txt, data.user_args.FetchTypes)
 	if clicked then
 		GdbData.GetVCard(data.local_vars)
 	end
@@ -456,7 +535,8 @@ function GuiRender.Present(data, width, height)
 		ImGui.TableSetColumnIndex(1)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "type")
 		ImGui.TableSetColumnIndex(2)
-		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, string.format("data%s%s%s", spacing20, spacing20, spacing20))
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, string.format(
+			"data%s%s%s", spacing20, spacing20, spacing20))
 
 		for i, var in ipairs(data.local_vars) do
 			ImGui.TableNextRow()
@@ -569,7 +649,8 @@ function GuiRender.Present(data, width, height)
 
 	if ImGui.Button("Populate") then
 		GdbData.SetTrackedRegisters(data, ExecuteCmd("-data-list-register-names"))
-		GdbData.UpdateRegisters(data, ExecuteCmd(table.concat(GdbData.SetupRegisterDataCmd(data, val), "")))
+		GdbData.UpdateRegisters(data, 
+			ExecuteCmd(table.concat(GdbData.SetupRegisterDataCmd(data, val), "")))
 	end
 
 	tbl_sz = ImGui.GetWindowSize()
@@ -591,7 +672,8 @@ function GuiRender.Present(data, width, height)
 				-- value
 				ImGui.TableSetColumnIndex(1)
 				ImGui.PushItemWidth(-1)
-				ImGui.InputText("##reg_item"..reg.number, reg.value, imgui.enums.text.ReadOnly)
+				ImGui.InputText(
+					"##reg_item"..reg.number, reg.value, imgui.enums.text.ReadOnly)
 				ImGui.PopItemWidth()
 			end
 		end
@@ -605,13 +687,17 @@ function GuiRender.Present(data, width, height)
 	ImGui.Begin("Watch")
 	
 
-	if ImGui.Button("Add watch expression") then
-		data.user_args.WatchExpr[#data.user_args.WatchExpr + 1] = { expr = "", value = "" }
+	-- compact and resize list
+	local compact_l = {}
+	for i, watch_data in ipairs(data.user_args.Watch) do
+		if watch_data.expr ~= "" then compact_l[#compact_l + 1] = watch_data end
 	end
+	data.user_args.Watch = compact_l
+	data.user_args.Watch[#data.user_args.Watch + 1] = { expr = "", value = "" }
 
 	-- get longest expression
 	local longest_expr = 15
-	for i, watch_data in ipairs(data.user_args.WatchExpr) do
+	for i, watch_data in ipairs(data.user_args.Watch) do
 		local e_len = watch_data.expr:len()
 		longest_expr = e_len > longest_expr and e_len or longest_expr
 	end
@@ -625,16 +711,18 @@ function GuiRender.Present(data, width, height)
 		ImGui.TableSetColumnIndex(0)
 		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, "expr      "..table.concat(expr_space))
 		ImGui.TableSetColumnIndex(1)
-		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, string.format("data%s%s%s", spacing20, spacing20, spacing20))
+		ImGui.TextColored({ 1.0, 1, 1, 0.5 }, string.format(
+			"data%s%s%s", spacing20, spacing20, spacing20))
 
-		for i, watch_data in ipairs(data.user_args.WatchExpr) do
+		for i, watch_data in ipairs(data.user_args.Watch) do
 			ImGui.TableNextRow()
 
 			ImGui.TableSetColumnIndex(0)
 			local in_expr = watch_data.expr
 
 			ImGui.PushItemWidth(-1)
-			clicked, in_expr = ImGui.InputText("##watche"..i, in_expr, imgui.enums.text.EnterReturnsTrue)
+			clicked, in_expr = ImGui.InputText(
+				"##watche"..i, in_expr, imgui.enums.text.EnterReturnsTrue)
 			ImGui.PopItemWidth()
 			if clicked then
 				-- update specific watch value

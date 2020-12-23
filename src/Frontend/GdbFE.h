@@ -16,6 +16,8 @@ extern "C"
 
     int DrawFrontend(void);
 
+    int CloseFrontend(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -4,18 +4,64 @@ local Json = require "JSON"
 
 local GdbData = {}
 
--- TODO : Create parser function to load() that appends '_' to lua lang keywords
+local ExecuteCmd = function(cmd) if SendToGdb(cmd) then return ReadFromGdb() end end
+
+-- TODO : maybe create parser function to load() that appends '_' to lua lang keywords
+
+function GdbData.LoadExe(data)
+	ExecuteCmd("-file-exec-and-symbols "..data.user_args.ExeStart.exe)
+
+	if data.user_args.ExeStart.args ~= "" then
+		ExecuteCmd("-exec-arguments "..data.user_args.ExeStart.args)
+	end
+
+	ExecuteCmd("-break-insert -t main")
+end
+
+function GdbData.LoadSettings(data)
+	if data.user_args.Breaks then
+		for _, brk_pt in ipairs(data.user_args.Breaks) do
+			ExecuteCmd(string.format("-break-insert%s --source %s --line %s",
+				brk_pt.disp == "del" and " -t" or "",
+				brk_pt.fullname,
+				brk_pt.line
+			))
+		end
+	end
+	if data.user_args.Watch then
+		for i, watch_data in ipairs(data.user_args.Watch) do
+			watch_data.value = ""
+		end
+	end
+	GdbData.ParseBreakpoints(data, ExecuteCmd("-break-list"))
+end
+
+function GdbData.ShowBreaks(data)
+	if data.user_args.Breaks then
+		local markers = {}
+		for _, brk_pt in ipairs(data.user_args.Breaks) do
+			if data.open_file.full == brk_pt.fullname and brk_pt.line then
+				markers[#markers + 1] = tonumber(brk_pt.line)
+			end
+		end
+		SetEditorBkPts(#markers, markers)
+	end
+end
 
 function GdbData.UpdateFile(data, title, file, line, column, func)
 	if file == data.open_file.full and data.open_file.is_open then
 		-- set line number
 		SetEditorFileLineNum(tonumber(line), column)
+
+		GdbData.ShowBreaks(data)
 	elseif file then
 		-- open new file
 		if SetEditorFile(file, tonumber(line), column) then
 			data.open_file.short = title
 			data.open_file.full = file
 			data.open_file.is_open = true
+			
+			GdbData.ShowBreaks(data)
 		else
 			print("Failed to open: "..file)
 		end
@@ -39,9 +85,36 @@ function GdbData.Next(data, input)
 	end
 end
 
+function GdbData.ParseBreakpoints(data, input)
+	if type(input) == "string" then
+		data.user_args.Breaks = {}
+
+		local _, _, bkpts = input:find("body=(.*)")
+		if bkpts then
+			for match in bkpts:gmatch("({[^{}]*})") do
+				match = match:gsub("type=", "btype=")
+				match = match:gsub("thread%-groups=%[([%w\"]*)%]", "thread_g={%1}")
+				match = match:gsub("original%-location=", "org_loc=")
+
+				local bkpt_chunk = load("return "..match)
+				if bkpt_chunk then
+					local new_idx = #data.user_args.Breaks + 1
+					data.user_args.Breaks[new_idx] = bkpt_chunk()
+
+					if data.user_args.Breaks[new_idx].cond == nil then
+						data.user_args.Breaks[new_idx].cond = ""
+					end
+				end
+				--print(match)
+			end
+		end
+	end
+	GdbData.ShowBreaks(data)
+end
+
 function GdbData.UpdateBreakpoint(data, input)
 	if type(input) == "string" then
-		local _, _, bkpt = input:find("bkpt=(.*)")
+		local _, _, bkpt = input:find("bkpt={(.*)}")
 		if bkpt then 
 			local _, _, short = bkpt:find("file=\"([%w%s_/%.]*)\"")
 			local _, _, full = bkpt:find("fullname=\"([%w%s_/%.,]*)\"")
@@ -225,7 +298,7 @@ function GdbData.UpdateLocals(data, input)
 
 		--data.local_vars_txt = Json:encode_pretty(new_data.locals)
 
-		if data.get_local_types then GdbData.GetVCard(data.local_vars) end
+		if data.user_args.FetchTypes then GdbData.GetVCard(data.local_vars) end
 	end
 end
 

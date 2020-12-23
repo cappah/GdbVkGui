@@ -5,15 +5,13 @@ ImGui     = ImGuiLib
 GuiRender = require "GuiRender"
 GdbData   = require "GdbData"
 
+local Json = require "JSON"
+
 GdbApp = {
 	exe_filename = "",
 	open_file = { short = "", full = "", func = "", is_open = false },
 
-	force_reload = nil,
-	module_list = {
-		{ 1, "GuiRender" },
-		{ 2, "GdbData" },
-	},
+	force_reload = false,
 
 	local_vars = {},
 	asm = {},
@@ -22,7 +20,6 @@ GdbApp = {
 	memory = {},
 
 	curr_stack_frame = 1,
-	get_local_types = false,
 
 	user_args = {},
 
@@ -32,7 +29,6 @@ GdbApp = {
 
 	open_dialog = false,
 	open_dialog_exe = false,
-	reload_module = false,
 }
 
 print("Starting GdbApp")
@@ -42,10 +38,38 @@ function GdbApp:Init(args)
 	collectgarbage("setpause", 150)
 end
 
+function GdbApp:OnExit(args)
+	local session = Json:encode_pretty(self.user_args)
+
+	local out_file = ROOT_DIR.."/bin/session.json"
+	local file = io.open(out_file, "w")
+	if file then
+		file:write(session)
+		file:close()
+	end
+end
+
 function GdbApp:Update(args)
 	if ImGui.BeginMainMenuBar() then
 		if ImGui.BeginMenu("File") then
-			if ImGui.MenuItem("ShowDemo", false) then
+			if ImGui.MenuItem("Load Last Session", false) then
+				local in_file = ROOT_DIR.."/bin/session.json"
+				local file = io.open(in_file, "r")
+				if file then
+					local file_contents = {}
+					for line in file:lines() do
+						file_contents[#file_contents + 1] = line
+					end
+
+					file:close()
+					
+					self.user_args = Json:decode(table.concat(file_contents, "\n"))
+					if self.user_args.ExeStart and self.user_args.ExeStart.exe then
+						GdbData.LoadExe(self)
+					end
+					ReadFromGdb()
+					GdbData.LoadSettings(self)
+				end
 			end
 			if ImGui.MenuItem("Exe Open", false) then
 				self.open_dialog_exe = true
@@ -58,17 +82,22 @@ function GdbApp:Update(args)
 					SetEditorTheme(1);
 				end
 				if ImGui.MenuItem("Light", false) then
-					SetEditorTheme(1);
+					SetEditorTheme(2);
 				end
 				if ImGui.MenuItem("RetroBlue", false) then
-					SetEditorTheme(1);
+					SetEditorTheme(3);
 				end
 				ImGui.EndMenu()
 			end
 
 			ImGui.Separator()
-			if ImGui.MenuItem("Reload Module", false) then
-				self.reload_module = true
+			if ImGui.MenuItem("Reload Modules", false) then
+				print("Reloading all scripts...")
+				package.loaded["GdbData"] = nil
+				package.loaded["GuiRender"] = nil
+
+				GdbData = require("GdbData")
+				GuiRender = require("GuiRender")
 			end
 			ImGui.EndMenu()
 		end
@@ -76,20 +105,4 @@ function GdbApp:Update(args)
 	end
 
 	GuiRender.Present(GdbApp, args.win_width, args.win_height)
-
-	-- module reloading
-	
-	if self.force_reload then
-		local idx <const> = self.force_reload
-		self.force_reload = nil
-
-		print("Reloading: \""..self.module_list[idx][2].."\"...")
-		package.loaded[self.module_list[idx][2]] = nil
-
-		if self.module_list[idx][1] == 1 then 
-			GuiRender = require(self.module_list[idx][2])
-		elseif self.module_list[idx][1] == 2 then
-			GdbData = require(self.module_list[idx][2])
-		end
-	end
 end

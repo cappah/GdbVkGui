@@ -117,7 +117,7 @@ main(const int argc, const char* argv[])
 
     double frame_time = NanoToSec(GetHighResTime());
     double fps        = 1.0 / 75.0;
-    while (close_frontend == false) {
+    while (close_frontend == false && AppMustExit() == false) {
         // write(STDOUT_FILENO, "\nGdb input: ", 12);
         // char input[128];
         // fgets(input, sizeof(input), stdin);
@@ -146,14 +146,19 @@ main(const int argc, const char* argv[])
         }
         frame_time = NanoToSec(GetHighResTime());
     }
-    close(fd_frontend_to_gdb[1]);
+    ShutdownGui(&app_win, CloseFrontend);
 
-    int wout = write(STDOUT_FILENO, "\nDone. \n", 9);
-    UNUSED_VAR(wout);
+    close(fd_frontend_to_gdb[1]);
 
     // close gdb if still open
     if (waitpid(gdb_process, &pid_status, WNOHANG) != gdb_process) {
         kill(gdb_process, SIGKILL);
+
+        int wout = write(STDOUT_FILENO, "\nKilling gdb and app.\n", 23);
+        UNUSED_VAR(wout);
+    } else {
+        int wout = write(STDOUT_FILENO, "\nDone. \n", 9);
+        UNUSED_VAR(wout);
     }
 
     return 0;

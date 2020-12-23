@@ -67,6 +67,8 @@ extern "C"
     struct xcb_connection_t* GetConnectionHandle(void);
 
     int32_t     AppLoadWindow(AppWindowData* win);
+    void        AppForceQuit();
+    bool        AppMustExit();
     void        AppProcessWindowEvents(AppWindowData* win);
     const char* AppRequestClipBoardData(AppWindowData* win);
 

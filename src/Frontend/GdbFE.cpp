@@ -15,6 +15,9 @@ LuaUpdate(void);
 static void
 LoadResources(const LoadSettings* lset);
 
+static int
+SaveAndExit(void);
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -22,6 +25,7 @@ extern "C"
 
     void InitFrontend(const LoadSettings* lset) { LoadResources(lset); }
     int  DrawFrontend(void) { return LuaUpdate(); }
+    int  CloseFrontend(void) { return SaveAndExit(); }
 
 #ifdef __cplusplus
 }
@@ -66,6 +70,7 @@ struct LuaRefs
 
 static LuaRefs s_app_init;
 static LuaRefs s_app_upd;
+static LuaRefs s_app_exit;
 
 static int
 SetEditorTheme(lua_State* L);
@@ -119,6 +124,11 @@ LoadResources(const LoadSettings* lset)
     s_app_upd.m_GlobalRef = upd_g_ref;
     s_app_upd.m_FuncRef   = upd_f_ref;
 
+    int32_t exit_g_ref, exit_f_ref;
+    exit_f_ref = GetLuaMethodReference("GdbApp", "OnExit", &exit_g_ref);
+    s_app_exit.m_GlobalRef = exit_g_ref;
+    s_app_exit.m_FuncRef   = exit_f_ref;
+
     // hook up C-functions
     lua_State* lstate = GetLuaState();
 
@@ -158,6 +168,18 @@ LuaUpdate(void)
         ExitLuaCallback();
     }
 
+    return 0;
+}
+
+static int
+SaveAndExit(void)
+{
+    if (EnterLuaCallback(s_app_exit.m_GlobalRef, s_app_exit.m_FuncRef)) {
+        // push arguments
+        // lua_State* lstate = GetLuaState();
+
+        ExitLuaCallback();
+    }
     return 0;
 }
 
@@ -226,7 +248,7 @@ SetEditorFile(lua_State* L)
 {
     const char* fname    = (const char*)luaL_checkstring(L, 1);
     uint32_t    line_num = (uint32_t)luaL_checkinteger(L, 2);
-    uint32_t    clmn_num = (uint32_t)luaL_checkinteger(L, 3);
+    // uint32_t    clmn_num = (uint32_t)luaL_checkinteger(L, 3);
 
     bool success = false;
 
@@ -236,7 +258,11 @@ SetEditorFile(lua_State* L)
 
         line_num = CLAMP(line_num - 1, 0, (uint32_t)s_editor.GetTotalLines());
 
-        TextEditor::Coordinates cpos(line_num, clmn_num);
+        // set cursor to 0,0 then to actual location
+        // this should ensure that the text follows gdb
+        TextEditor::Coordinates cpos(0, 0);
+        s_editor.SetCursorPosition(cpos);
+        cpos.mLine = line_num;
         s_editor.SetCursorPosition(cpos);
 
         success = true;
@@ -281,6 +307,12 @@ SetEditorBkPts(lua_State* L)
         for (uint32_t i = 0; i < bkpt_cnt; i++) {
             bkpts.insert(fbuff[i]);
         }
+        s_editor.SetBreakpoints(bkpts);
+
+        WmFree(fbuff);
+    } else {
+        // clear
+        TextEditor::Breakpoints bkpts;
         s_editor.SetBreakpoints(bkpts);
     }
     return 0;

@@ -14,6 +14,8 @@ extern "C"
 
     void ProcessGuiFrame(AppWindowData* win, FrontEndCB f_cb);
 
+    void ShutdownGui(AppWindowData* win, FrontEndCB f_cb);
+
 #ifdef __cplusplus
 }
 #endif

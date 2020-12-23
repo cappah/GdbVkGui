@@ -21,6 +21,7 @@ struct KeyIds g_KeyIds = {
 };
 
 static uint32_t s_sticky_enter_hack;
+static bool     s_force_exit;
 
 //-----------------------------------------------------------------------------
 
@@ -201,6 +202,18 @@ AppLoadWindow(AppWindowData* win)
     xcb_flush(win->m_Connection);
 
     return 0;
+}
+
+void
+AppForceQuit()
+{
+    s_force_exit = true;
+}
+
+bool
+AppMustExit()
+{
+    return s_force_exit == true;
 }
 
 void

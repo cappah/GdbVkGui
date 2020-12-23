@@ -7,6 +7,7 @@
 #include "Gui/ImguiToLua.h"
 #include "ProcessIO.h"
 #include "UtilityMacros.h"
+#include "WindowInterface.h"
 
 static lua_State* s_lstate;
 static uint64_t   s_lua_alloc_count;
@@ -86,6 +87,8 @@ handle_lua_error()
 {
     fprintf(stderr, "%s\n", lua_tostring(s_lstate, -1));
     lua_pop(s_lstate, 1);
+
+    AppForceQuit();
 }
 
 int
