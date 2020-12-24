@@ -55,6 +55,7 @@ DEF="-DVK_NO_PROTOTYPES"
 if [[ ! -f "lua-5.4.2/src/liblua.a" ]]; then
 	cd ${DIR}lua-5.4.2
 	make linux
+	make local
 	cd ${DIR}
 fi
 

@@ -5,3 +5,4 @@ lib/
 install/
 tags
 *.o
+prog.luac
